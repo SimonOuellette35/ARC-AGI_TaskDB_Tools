@@ -23,6 +23,13 @@ It also includes a script to generate training examples from this task database,
     pip install -e .
     ```
 
+2. Add ARC-AGI-2 training data grids to ARC_gym local repo:
+
+    ```
+    cd ARC_gym
+    git clone https://github.com/arcprize/ARC-AGI-2.git
+    ```
+
 3. Install AmotizedDSL (the acutal DSL used by the program ground truths + program interpreter and utilities)
 
     ```
