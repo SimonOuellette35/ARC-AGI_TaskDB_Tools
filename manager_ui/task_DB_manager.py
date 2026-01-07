@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Simple HTTP server to serve the task manager webpage and handle JSON file operations.
-Run this script and then open http://localhost:8000/task_manager.html in your browser.
+Run this script and then open http://localhost:8000/manager_ui/task_manager.html in your browser.
 """
 
 import json
@@ -12,12 +12,16 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 # Add the project root to the path
-sys.path.insert(0, str(Path(__file__).parent))
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+# Path to task_DB.json in the root folder
+TASK_DB_PATH = project_root / 'task_DB.json'
 
 # Import required modules for grid generation
 import AmotizedDSL.DSL as DSL
 from AmotizedDSL.prog_utils import ProgUtils
-from datasets.grid_example_generator import generate_grid_examples
+from dreaming.grid_example_generator import generate_grid_examples
 import re
 import ast
 
@@ -309,11 +313,11 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
         print(f"[DEBUG] GET request: path={path}, full_path={self.path}")
 
         # Serve task_manager.html
-        if path == '/' or path == '/task_manager.html':
-            self.serve_file('task_manager.html', 'text/html')
+        if path == '/' or path == '/task_manager.html' or path == '/manager_ui/task_manager.html':
+            self.serve_file('manager_ui/task_manager.html', 'text/html')
         # Serve task_DB.json
-        elif path == '/task_DB.json':
-            self.serve_file('task_DB.json', 'application/json')
+        elif path == '/task_DB.json' or path == '/manager_ui/task_DB.json':
+            self.serve_file(str(TASK_DB_PATH), 'application/json')
         # Test endpoint
         elif path == '/test':
             self.send_response(200)
@@ -407,10 +411,10 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
                             # Continue without instructions - task will be saved without them
                 
                 # Backup existing file before writing
-                backup_path = 'task_DB.json.backup'
-                if os.path.exists('task_DB.json'):
+                backup_path = str(TASK_DB_PATH) + '.backup'
+                if os.path.exists(TASK_DB_PATH):
                     try:
-                        with open('task_DB.json', 'r') as f:
+                        with open(TASK_DB_PATH, 'r') as f:
                             backup_data = f.read()
                         with open(backup_path, 'w') as f:
                             f.write(backup_data)
@@ -419,7 +423,7 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
                         print(f"[SAVE] Warning: Could not create backup: {e}")
                 
                 # Write new data to task_DB.json
-                with open('task_DB.json', 'w') as f:
+                with open(TASK_DB_PATH, 'w') as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
                 
                 print(f"[SAVE] Successfully saved {len(data)} task(s) to task_DB.json")
@@ -477,7 +481,7 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
 
             # Load task_DB.json
             try:
-                with open('task_DB.json', 'r') as f:
+                with open(TASK_DB_PATH, 'r') as f:
                     tasks = json.load(f)
             except FileNotFoundError:
                 raise ValueError("task_DB.json not found")
@@ -677,7 +681,7 @@ def run_server(port=8000):
     server_address = ('', port)
     httpd = HTTPServer(server_address, TaskManagerHandler)
     print(f"Server running at http://localhost:{port}/")
-    print(f"Open http://localhost:{port}/task_manager.html in your browser")
+    print(f"Open http://localhost:{port}/manager_ui/task_manager.html in your browser")
     print("Press Ctrl+C to stop the server")
     try:
         httpd.serve_forever()
