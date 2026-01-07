@@ -1,4 +1,4 @@
-# ARC-AGI _Task Database Management, Curation & Generation Tools
+# ARC-AGI Task DB Management, Curation & Generation Tools
 ARC-AGI Task database manager UI &amp; "Dreaming" framework
 
 ![Main Diagram](images/main_diagram.png)
