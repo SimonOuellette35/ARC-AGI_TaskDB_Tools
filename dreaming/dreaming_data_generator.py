@@ -8,10 +8,11 @@ import random
 import math
 import sys
 import re
+import ast
 from pathlib import Path
 import numpy as np
 import inspect
-from datasets.grid_example_generator import generate_grid_examples, replace_parameter_placeholders
+from dreaming.grid_example_generator import generate_grid_examples, replace_parameter_placeholders
 import AmotizedDSL.DSL as DSL
 import AmotizedDSL.program_interpreter as pi
 from AmotizedDSL.prog_utils import ProgUtils
@@ -21,9 +22,194 @@ import copy
 
 VERBOSE = False
 
-# Import parse_program_string from task_DB_manager
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from task_DB_manager import parse_program_string
+
+def parse_program_string(program_str, N):
+    """
+    Parse a program string (human-readable format) into hand-written format.
+    
+    Args:
+        program_str: String like "[\n  get_objects(N+0),\n  del(N+0),\n  ...\n]"
+        N: Base offset for N+ references (typically len(DSL.semantics))
+    
+    Returns:
+        List of tuples in hand-written format: [(primitive_name, [args...]), ...]
+    """
+    # Remove outer brackets and split by lines
+    program_str = program_str.strip()
+    if program_str.startswith('['):
+        program_str = program_str[1:]
+    if program_str.endswith(']'):
+        program_str = program_str[:-1]
+    
+    lines = [line.strip() for line in program_str.split('\n') if line.strip() and line.strip() not in ['[', ']']]
+    
+    program = []
+    for line in lines:
+        # Remove trailing comma if present
+        line = line.rstrip(',').strip()
+        if not line:
+            continue
+        
+        # Parse function call: primitive_name(arg1, arg2, ...)
+        match = re.match(r'(\w+)\((.*)\)', line)
+        if not match:
+            continue
+        
+        primitive_name = match.group(1)
+        args_str = match.group(2)
+        
+        # Parse arguments
+        args = []
+        if args_str.strip():
+            # Split arguments, handling nested structures
+            arg_parts = []
+            depth = 0
+            current_arg = []
+            i = 0
+            while i < len(args_str):
+                char = args_str[i]
+                if char == '[':
+                    depth += 1
+                    current_arg.append(char)
+                elif char == ']':
+                    depth -= 1
+                    current_arg.append(char)
+                elif char == ',' and depth == 0:
+                    # End of argument
+                    arg_parts.append(''.join(current_arg).strip())
+                    current_arg = []
+                else:
+                    current_arg.append(char)
+                i += 1
+            if current_arg:
+                arg_parts.append(''.join(current_arg).strip())
+            
+            # Parse each argument
+            for arg_str in arg_parts:
+                arg_str = arg_str.strip()
+                if not arg_str:
+                    continue
+                
+                # Strip quotes from string arguments (handles "param1" -> param1)
+                original_arg_str = arg_str
+                parsed_string_value = None
+                if (arg_str.startswith('"') and arg_str.endswith('"')) or (arg_str.startswith("'") and arg_str.endswith("'")):
+                    try:
+                        # Use ast.literal_eval to properly parse quoted strings
+                        parsed_string_value = ast.literal_eval(arg_str)
+                        if isinstance(parsed_string_value, str):
+                            arg_str = parsed_string_value
+                    except:
+                        # If parsing fails, just strip quotes manually
+                        arg_str = arg_str[1:-1]
+                
+                # Check for N+offset syntax
+                n_match = re.match(r'N\+(\d+)', arg_str)
+                if n_match:
+                    offset = int(n_match.group(1))
+                    value = N + offset
+                    # Check for attribute access like N+0.c
+                    if '.' in arg_str:
+                        attr_match = re.match(r'N\+\d+(\.\w+)', arg_str)
+                        if attr_match:
+                            attr = attr_match.group(1)
+                            args.append((value, attr))
+                        else:
+                            args.append(value)
+                    else:
+                        args.append(value)
+                # Check for parameter placeholder like param1, param2
+                elif arg_str.startswith('param') and arg_str[5:].isdigit():
+                    args.append(arg_str)  # Keep as string placeholder
+                # Check for nested list
+                elif arg_str.startswith('[') and arg_str.endswith(']'):
+                    # Parse as simple list of values
+                    inner = arg_str[1:-1].strip()
+                    if inner:
+                        # Split by comma, but handle nested structures
+                        nested_items = []
+                        depth = 0
+                        current_item = []
+                        for char in inner:
+                            if char == '[':
+                                depth += 1
+                                current_item.append(char)
+                            elif char == ']':
+                                depth -= 1
+                                current_item.append(char)
+                            elif char == ',' and depth == 0:
+                                nested_items.append(''.join(current_item).strip())
+                                current_item = []
+                            else:
+                                current_item.append(char)
+                        if current_item:
+                            nested_items.append(''.join(current_item).strip())
+                        
+                        parsed_items = []
+                        for item in nested_items:
+                            item = item.strip()
+                            if not item:
+                                continue
+                            
+                            # Strip quotes from string items (handles "param1" -> param1)
+                            original_item = item
+                            parsed_string_value = None
+                            if (item.startswith('"') and item.endswith('"')) or (item.startswith("'") and item.endswith("'")):
+                                try:
+                                    # Use ast.literal_eval to properly parse quoted strings
+                                    parsed_string_value = ast.literal_eval(item)
+                                    if isinstance(parsed_string_value, str):
+                                        item = parsed_string_value
+                                except:
+                                    # If parsing fails, just strip quotes manually
+                                    item = item[1:-1]
+                            
+                            # Check for N+offset syntax
+                            n_match = re.match(r'N\+(\d+)', item)
+                            if n_match:
+                                offset = int(n_match.group(1))
+                                parsed_items.append(N + offset)
+                            # Check for integer
+                            elif item.isdigit() or (item.startswith('-') and item[1:].isdigit()):
+                                parsed_items.append(int(item))
+                            # Check for parameter placeholder
+                            elif item.startswith('param') and item[5:].isdigit():
+                                parsed_items.append(item)
+                            else:
+                                # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
+                                if parsed_string_value is not None:
+                                    parsed_items.append(parsed_string_value)
+                                else:
+                                    try:
+                                        parsed_items.append(ast.literal_eval(item))
+                                    except:
+                                        parsed_items.append(item)
+                        args.append(parsed_items)
+                    else:
+                        args.append([])
+                # Check for integer
+                elif arg_str.isdigit() or (arg_str.startswith('-') and arg_str[1:].isdigit()):
+                    args.append(int(arg_str))
+                # Check for attribute access on integer (like 0.c)
+                elif re.match(r'(\d+)\.(\w+)', arg_str):
+                    match_attr = re.match(r'(\d+)\.(\w+)', arg_str)
+                    int_val = int(match_attr.group(1))
+                    attr = '.' + match_attr.group(2)
+                    args.append((int_val, attr))
+                else:
+                    # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
+                    if parsed_string_value is not None:
+                        args.append(parsed_string_value)
+                    else:
+                        try:
+                            args.append(ast.literal_eval(arg_str))
+                        except:
+                            # Keep as string if can't parse
+                            args.append(arg_str)
+        
+        program.append((primitive_name, args))
+    
+    return program
 
 
 def format_json_with_compact_integer_lists(obj, indent=2, current_indent=0):
