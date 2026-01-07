@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task DB Manager</title>
+    <link rel="stylesheet" href="task_manager.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>
+                <span>Tasks <span id="totalTaskCount"></span></span>
+                <button class="btn-add" onclick="startAddNew()">Add entry</button>
+            </h2>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search tasks...">
+            </div>
+            <ul class="task-list" id="taskList">
+                <li class="loading">Loading tasks...</li>
+            </ul>
+        </div>
+
+        <div class="content" id="content">
+            <div class="empty-state">
+                <h2>Select a task to view details</h2>
+                <p>Click on a task from the list to see its details</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let tasks = [];
+        let currentTaskIndex = -1;
+        let isEditing = false;
+        let isAddingNew = false;
+
+        // Available tags for input grid constraints
+        const AVAILABLE_TAGS = [
+            'basic',
+            'corner_objects',
+            'count_and_draw',
+            'croppable_corners',
+            'distinct_colors_adjacent',
+            'distinct_colors_adjacent_empty',
+            'distinct_colors_adjacent_empty_fill',
+            'fixed_size_2col_shapes3x3',
+            'fixed_size_2col_shapes4x4',
+            'fixed_size_2col_shapes5x5',
+            'fixed_size_2col_shapes3x3_bb',
+            'fixed_size_2col_shapes4x4_bb',
+            'fixed_size_2col_shapes5x5_bb',
+            'four_corners',
+            'incomplete_pattern_dot_plus',
+            'incomplete_pattern_dot_x',
+            'incomplete_pattern_plus_filled',
+            'incomplete_pattern_plus_hollow',
+            'incomplete_pattern_square_filled',
+            'incomplete_pattern_square_hollow',
+            'incomplete_pattern_x_filled',
+            'incomplete_pattern_x_hollow',
+            'incomplete_rectangles',
+            'incomplete_rectangles_same_shape',
+            'inner_color_borders',
+            'inside_croppable',
+            'max_count',
+            'max_corner_objects',
+            'min_count',
+            'min_corner_objects',
+            'non_symmetrical_shapes',
+            'shearable_grids',
+            'simple_filled_rectangles',
+            'single_object',
+            'single_object_noisy_bg',
+            'uniform_rect_noisy_bg',
+            'window_noisy_bg'
+        ];
+
+        // Update total task count display
+        function updateTotalTaskCount() {
+            const totalCountElement = document.getElementById('totalTaskCount');
+            if (totalCountElement) {
+                totalCountElement.textContent = `(${tasks.length})`;
+            }
+        }
+
+        // Load tasks from JSON file
+        async function loadTasks() {
+            try {
+                const response = await fetch('task_DB.json');
+                tasks = await response.json();
+                updateTotalTaskCount();
+                renderTaskList();
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+                document.getElementById('taskList').innerHTML = 
+                    '<li style="color: #00aa00; border: 1px solid #00aa00; padding: 10px; background: #002200;">Error loading tasks. Make sure task_DB.json is in the same directory.</li>';
+            }
+        }
+
+        // Render task list
+        function renderTaskList(filter = '') {
+            const taskList = document.getElementById('taskList');
+            const searchTerm = filter.toLowerCase();
+
+            const filteredTasks = tasks.filter(task => 
+                task.name && task.name.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredTasks.length === 0) {
+                taskList.innerHTML = '<li style="color: #008800; border: 1px solid #00aa00; padding: 10px; background: #002200;">No tasks found</li>';
+                return;
+            }
+
+            // Group tasks by curriculum level
+            const groupedTasks = {};
+            filteredTasks.forEach(task => {
+                const level = task.curriculum_level !== undefined ? task.curriculum_level : -1;
+                if (!groupedTasks[level]) {
+                    groupedTasks[level] = [];
+                }
+                groupedTasks[level].push(task);
+            });
+
+            // Get sorted levels (0, 1, 2, etc., then -1 for undefined)
+            const sortedLevels = Object.keys(groupedTasks)
+                .map(level => parseInt(level))
+                .sort((a, b) => {
+                    // Put -1 (undefined) at the end
+                    if (a === -1) return 1;
+                    if (b === -1) return -1;
+                    return a - b;
+                });
+
+            // Build HTML with level headers
+            let html = '';
+            sortedLevels.forEach(level => {
+                const levelTasks = groupedTasks[level].sort((a, b) => {
+                    const nameA = (a.name || 'Unnamed Task').toLowerCase();
+                    const nameB = (b.name || 'Unnamed Task').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                const taskCount = levelTasks.length;
+                const levelLabel = level === -1 ? `No Level (${taskCount})` : `Level ${level} (${taskCount})`;
+                
+                html += `<li class="level-header collapsed" onclick="toggleLevel('${level}', this)">
+                    <span>${levelLabel}</span>
+                    <span class="chevron">▼</span>
+                </li>`;
+                
+                html += `<li class="level-content-wrapper">
+                    <div class="level-content collapsed" data-level="${level}" style="max-height: 0;">`;
+                
+                levelTasks.forEach(task => {
+                    const originalIndex = tasks.indexOf(task);
+                    const source = task.source || '';
+                    let icon = '';
+                    if (source === 'Manual') {
+                        icon = '<span class="task-item-icon">✋</span>';
+                    } else if (source === 'Auto') {
+                        icon = '<span class="task-item-icon auto-source-icon">⚡</span>';
+                    }
+                    
+                    // Add validation icon
+                    const validated = task.validated !== undefined ? task.validated : (source === 'Manual');
+                    const validationIcon = validated 
+                        ? '<span class="task-item-validation-icon validated">✓</span>'
+                        : '<span class="task-item-validation-icon not-validated">?</span>';
+                    
+                    html += `
+                        <div class="task-item ${originalIndex === currentTaskIndex ? 'active' : ''}" 
+                            onclick="selectTask(${originalIndex})">
+                            <span class="task-item-name">${task.name || 'Unnamed Task'}</span>
+                            <span style="display: flex; align-items: center;">
+                                ${validationIcon}
+                                ${icon}
+                            </span>
+                        </div>
+                    `;
+                });
+                
+                html += `</div></li>`;
+            });
+
+            taskList.innerHTML = html;
+        }
+
+        // Toggle level expand/collapse
+        function toggleLevel(level, element) {
+            const levelContent = document.querySelector(`.level-content[data-level="${level}"]`);
+            const levelHeader = element;
+            
+            if (levelContent && levelHeader) {
+                const isCollapsed = levelContent.classList.contains('collapsed');
+                
+                if (isCollapsed) {
+                    // Expand: remove collapsed class and set a large max-height for smooth transition
+                    levelContent.style.maxHeight = '0';
+                    // Force reflow to ensure 0 height is applied
+                    void levelContent.offsetHeight;
+                    levelContent.classList.remove('collapsed');
+                    levelHeader.classList.remove('collapsed');
+                    // Set to a very large value to accommodate many tasks - CSS will handle the actual display
+                    levelContent.style.maxHeight = '999999px';
+                    // After transition, remove inline style to allow natural height
+                    setTimeout(() => {
+                        levelContent.style.maxHeight = '';
+                    }, 300);
+                } else {
+                    // Collapse: set current height first, then add collapsed class
+                    const height = levelContent.scrollHeight;
+                    levelContent.style.maxHeight = height + 'px';
+                    // Force reflow
+                    void levelContent.offsetHeight;
+                    levelContent.classList.add('collapsed');
+                    levelHeader.classList.add('collapsed');
+                    levelContent.style.maxHeight = '0';
+                }
+            }
+        }
+
+        // Select a task
+        function selectTask(index) {
+            if (isEditing || isAddingNew) {
+                if (!confirm('You have unsaved changes. Discard them?')) {
+                    return;
+                }
+                isEditing = false;
+                isAddingNew = false;
+            }
+
+            currentTaskIndex = index;
+            const task = tasks[index];
+            const level = task.curriculum_level !== undefined ? task.curriculum_level : -1;
+            
+            renderTaskList(document.getElementById('searchInput').value);
+            
+            // Expand the level group if it's collapsed
+            setTimeout(() => {
+                const levelContent = document.querySelector(`.level-content[data-level="${level}"]`);
+                if (levelContent && levelContent.classList.contains('collapsed')) {
+                    // Find the level-header which is the previous sibling of the level-content-wrapper
+                    const levelContentWrapper = levelContent.parentElement;
+                    const levelHeader = levelContentWrapper ? levelContentWrapper.previousElementSibling : null;
+                    if (levelHeader && levelHeader.classList.contains('level-header')) {
+                        toggleLevel(level.toString(), levelHeader);
+                    }
+                }
+            }, 10);
+            
+            renderTaskDetails(tasks[index]);
+            loadGridExamples(index);
+        }
+
+        // Render task details
+        function renderTaskDetails(task) {
+            const content = document.getElementById('content');
+            
+            // Get source icon and tooltip
+            const source = task.source || '';
+            let sourceIcon = '';
+            let sourceTooltip = '';
+            let sourceIconClass = 'task-source-icon';
+            if (source === 'Manual') {
+                sourceIcon = '✋';
+                sourceTooltip = 'Task was manually created';
+            } else if (source === 'Auto') {
+                sourceIcon = '⚡';
+                sourceTooltip = 'Task automatically generated';
+                sourceIconClass = 'task-source-icon auto-source-icon';
+            }
+            
+            content.innerHTML = `
+                <div class="content-header">
+                    <h1>
+                        ${task.name || 'Unnamed Task'}
+                        ${sourceIcon ? `<span class="${sourceIconClass}" title="${sourceTooltip}">${sourceIcon}</span>` : ''}
+                    </h1>
+                    <div class="header-right">
+                        <div class="curriculum-level" title="Curriculum level: ${task.curriculum_level !== undefined ? task.curriculum_level : 'N/A'}">Level: ${task.curriculum_level !== undefined ? task.curriculum_level : 'N/A'}</div>
+                        <div class="action-buttons">
+                            <button class="btn btn-validate" onclick="toggleValidate()">${(task.validated !== undefined && task.validated) ? 'Unvalidate' : 'Validate'}</button>
+                            <button class="btn btn-edit" onclick="startEdit()">Edit</button>
+                            <button class="btn btn-delete" onclick="deleteTask()">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-view" id="detailView">
+                    <div class="detail-section">
+                        <h3>
+                            Grid Examples
+                            <span class="refresh-icon" onclick="refreshGridExamples()" title="Generate new examples">🔄</span>
+                        </h3>
+                        <div class="detail-content" id="gridExamples">
+                            <div class="loading-grids">Generating examples...</div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3>Program (with comments)</h3>
+                        <div class="detail-content">
+                            <div class="program-with-comments">${formatProgramWithComments(task.program || 'N/A', task.comments || [])}</div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3>Instructions</h3>
+                        <div class="detail-content">
+                            <pre>${escapeHtml(formatInstructions(task.instructions || []))}</pre>
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-section">
+                            <h3>Parameters</h3>
+                            <div class="detail-content">
+                                <pre>${escapeHtml(formatParameters(task.parameters || task.parameter))}</pre>
+                            </div>
+                        </div>
+
+                        <div class="detail-section">
+                            <h3>Grid Categories</h3>
+                            <div class="detail-content">
+                                ${formatTagsForDisplay(task.grid_categories)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-section">
+                            <h3>Grid Dimensions</h3>
+                            <div class="detail-content">
+                                <pre>Min: ${task.min_grid_dim !== undefined ? task.min_grid_dim : 'N/A'}
+Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="edit-form" id="editForm">
+                    <div class="form-group">
+                        <label for="editName">Name</label>
+                        <input type="text" id="editName" value="${escapeHtml(task.name || '')}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editCurriculumLevel">Curriculum Level</label>
+                        <input type="number" id="editCurriculumLevel" value="${task.curriculum_level !== undefined ? task.curriculum_level : 0}">
+                    </div>
+
+                    <div class="form-group">
+                        <div class="program-edit-container">
+                            <div class="program-code-section">
+                                <label for="editProgram">
+                                    Program
+                                    <button class="btn-execute" onclick="executeProgram()" id="executeProgramBtn" title="Execute program and show examples">
+                                        ▶ Execute
+                                    </button>
+                                </label>
+                                <textarea id="editProgram">${escapeHtml(task.program || '')}</textarea>
+                            </div>
+                            <div class="variable-stack-section">
+                                <label for="variableStack">Variable Stack</label>
+                                <textarea id="variableStack" readonly></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="programExamplesSection" style="display: none;">
+                        <h3>Program Examples</h3>
+                        <div class="detail-content" id="programExamples">
+                            <div class="loading-grids">Generating examples...</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editComments">Comments (JSON array)</label>
+                        <textarea id="editComments">${escapeHtml(JSON.stringify(task.comments || [], null, 2))}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Parameters</label>
+                        <div id="editParametersContainer"></div>
+                        <div class="tag-hint">Each parameter in the program will have a corresponding tag dropdown above</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editInputGridConstraints">Grid Categories (up to 5 tags)</label>
+                        <div id="editTagsContainer" class="tags-container"></div>
+                        <div class="tag-select-wrapper">
+                            <select id="editTagSelect" class="tag-select" onchange="addTag('editTagsContainer', 'editTagSelect')">
+                                <option value="">Select a tag...</option>
+                            </select>
+                        </div>
+                        <div class="tag-hint">Select tags from the dropdown to add them (maximum 5 tags)</div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="editMinGridDim">Min Grid Dimension</label>
+                            <input type="number" id="editMinGridDim" value="${task.min_grid_dim !== undefined ? task.min_grid_dim : ''}" min="1">
+                        </div>
+
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="editMaxGridDim">Max Grid Dimension</label>
+                            <input type="number" id="editMaxGridDim" value="${task.max_grid_dim !== undefined ? task.max_grid_dim : ''}" min="1">
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-save" onclick="saveTask()">Save</button>
+                        <button class="btn btn-cancel" onclick="cancelEdit()">Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            // Set parameter tags - count parameters in program and create dropdowns
+            setupParameterTags(task);
+            
+            // Initialize tags
+            const tags = getTagsFromTask(task);
+            renderTags('editTagsContainer', tags);
+            updateTagSelect('editTagSelect', tags);
+            
+            // Initialize variable stack display if in edit mode
+            if (isEditing || isAddingNew) {
+                setTimeout(() => updateVariableStackDisplay(), 100);
+            }
+        }
+
+        // Start adding new entry
+        function startAddNew() {
+            if (isEditing || isAddingNew) {
+                if (!confirm('You have unsaved changes. Discard them?')) {
+                    return;
+                }
+            }
+            
+            isAddingNew = true;
+            isEditing = false;
+            currentTaskIndex = -1;
+            
+            // Create empty task object
+            const emptyTask = {
+                name: '',
+                curriculum_level: 0,
+                program: '',
+                comments: [],
+                parameters: {},
+                grid_categories: {}
+            };
+            
+            // Render the form with empty values
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="content-header">
+                    <h1>Add New Task</h1>
+                </div>
+
+                <div class="edit-form active" id="editForm">
+                    <div class="form-group">
+                        <label for="editName">Name</label>
+                        <input type="text" id="editName" value="">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editCurriculumLevel">Curriculum Level</label>
+                        <input type="number" id="editCurriculumLevel" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <div class="program-edit-container">
+                            <div class="program-code-section">
+                                <label for="editProgram">
+                                    Program
+                                    <button class="btn-execute" onclick="executeProgram()" id="executeProgramBtn" title="Execute program and show examples">
+                                        ▶ Execute
+                                    </button>
+                                </label>
+                                <textarea id="editProgram"></textarea>
+                            </div>
+                            <div class="variable-stack-section">
+                                <label for="variableStack">Variable Stack</label>
+                                <textarea id="variableStack" readonly></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="programExamplesSection" style="display: none;">
+                        <h3>Program Examples</h3>
+                        <div class="detail-content" id="programExamples">
+                            <div class="loading-grids">Generating examples...</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editComments">Comments (JSON array)</label>
+                        <textarea id="editComments">[]</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editParameters">Parameters</label>
+                        <select id="editParameters">
+                            <option value="">(empty parameter)</option>
+                            <option value="color">color</option>
+                            <option value="margin">margin</option>
+                            <option value="bg_color">bg_color</option>
+                            <option value="fg_color">fg_color</option>
+                            <option value="existing_color">existing_color</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editInputGridConstraints">Grid Categories (up to 5 tags)</label>
+                        <div id="editTagsContainer" class="tags-container"></div>
+                        <div class="tag-select-wrapper">
+                            <select id="editTagSelect" class="tag-select" onchange="addTag('editTagsContainer', 'editTagSelect')">
+                                <option value="">Select a tag...</option>
+                            </select>
+                        </div>
+                        <div class="tag-hint">Select tags from the dropdown to add them (maximum 5 tags)</div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="editMinGridDim">Min Grid Dimension</label>
+                            <input type="number" id="editMinGridDim" value="3" min="1">
+                        </div>
+
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="editMaxGridDim">Max Grid Dimension</label>
+                            <input type="number" id="editMaxGridDim" value="30" min="1">
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-save" onclick="saveTask()">Save</button>
+                        <button class="btn btn-cancel" onclick="cancelEdit()">Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            // Initialize empty tags for new task
+            renderTags('editTagsContainer', []);
+            updateTagSelect('editTagSelect', []);
+            
+            // Initialize variable stack display
+            setTimeout(() => updateVariableStackDisplay(), 100);
+        }
+
+        // Start editing
+        function startEdit() {
+            isEditing = true;
+            isAddingNew = false;
+            document.getElementById('detailView').style.display = 'none';
+            document.getElementById('editForm').classList.add('active');
+            document.querySelector('.content-header .action-buttons').innerHTML = '';
+            // Initialize variable stack display
+            setTimeout(() => updateVariableStackDisplay(), 100);
+        }
+
+        // Cancel editing
+        function cancelEdit() {
+            isEditing = false;
+            isAddingNew = false;
+            
+            if (currentTaskIndex >= 0) {
+                // We were editing an existing task
+                document.getElementById('detailView').style.display = 'block';
+                document.getElementById('editForm').classList.remove('active');
+                renderTaskDetails(tasks[currentTaskIndex]);
+                loadGridExamples(currentTaskIndex);
+            } else {
+                // We were adding a new task, go back to empty state
+                document.getElementById('content').innerHTML = `
+                    <div class="empty-state">
+                        <h2>Select a task to view details</h2>
+                        <p>Click on a task from the list to see its details</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Save task
+        async function saveTask() {
+            try {
+                let task;
+                
+                if (isAddingNew) {
+                    // Create new task
+                    // Note: instructions field is NOT added here - it will be automatically generated
+                    // from the human-readable program when needed
+                    task = {
+                        name: document.getElementById('editName').value,
+                        curriculum_level: parseInt(document.getElementById('editCurriculumLevel').value) || 0,
+                        program: document.getElementById('editProgram').value,
+                        comments: [],
+                        parameters: {},
+                        grid_categories: {},
+                        source: 'Manual',
+                        validated: true
+                    };
+                    
+                    // Parse JSON fields
+                    try {
+                        task.comments = parseCommentsField(document.getElementById('editComments').value);
+                    } catch (e) {
+                        showNotification('Invalid JSON in Comments field: ' + e.message, 'error');
+                        return;
+                    }
+
+                    // Get tags from container
+                    const tagsContainer = document.getElementById('editTagsContainer');
+                    const tags = Array.from(tagsContainer.querySelectorAll('.tag-chip span:first-child'))
+                        .map(span => span.textContent);
+                    task.grid_categories = tags.length > 0 ? tags : [];
+
+                    // Get parameter tags from container
+                    const paramTags = getParameterTagsFromContainer();
+                    task.parameters = paramTags.length > 0 ? paramTags : [];
+                    
+                    // Get min_grid_dim and max_grid_dim
+                    const minGridDimInput = document.getElementById('editMinGridDim');
+                    const maxGridDimInput = document.getElementById('editMaxGridDim');
+                    if (minGridDimInput && minGridDimInput.value) {
+                        task.min_grid_dim = parseInt(minGridDimInput.value);
+                    }
+                    if (maxGridDimInput && maxGridDimInput.value) {
+                        task.max_grid_dim = parseInt(maxGridDimInput.value);
+                    }
+                    
+                    // Add to tasks array
+                    tasks.push(task);
+                    currentTaskIndex = tasks.length - 1;
+                    isAddingNew = false;
+                } else {
+                    // Update existing task
+                    task = tasks[currentTaskIndex];
+                    
+                    // Update task with form values
+                    task.name = document.getElementById('editName').value;
+                    task.program = document.getElementById('editProgram').value;
+                    
+                    // Parse JSON fields
+                    try {
+                        task.comments = parseCommentsField(document.getElementById('editComments').value);
+                    } catch (e) {
+                        showNotification('Invalid JSON in Comments field: ' + e.message, 'error');
+                        return;
+                    }
+
+                    // Get tags from container
+                    const tagsContainer = document.getElementById('editTagsContainer');
+                    const tags = Array.from(tagsContainer.querySelectorAll('.tag-chip span:first-child'))
+                        .map(span => span.textContent);
+                    task.grid_categories = tags.length > 0 ? tags : [];
+
+                    // Get parameter tags from container
+                    const paramTags = getParameterTagsFromContainer();
+                    task.parameters = paramTags.length > 0 ? paramTags : [];
+                    // Remove old parameter field for backward compatibility
+                    if (task.parameter !== undefined) {
+                        delete task.parameter;
+                    }
+
+                    // Get min_grid_dim and max_grid_dim
+                    const minGridDimInput = document.getElementById('editMinGridDim');
+                    const maxGridDimInput = document.getElementById('editMaxGridDim');
+                    if (minGridDimInput && minGridDimInput.value) {
+                        task.min_grid_dim = parseInt(minGridDimInput.value);
+                    } else {
+                        // Remove the field if empty
+                        delete task.min_grid_dim;
+                    }
+                    if (maxGridDimInput && maxGridDimInput.value) {
+                        task.max_grid_dim = parseInt(maxGridDimInput.value);
+                    } else {
+                        // Remove the field if empty
+                        delete task.max_grid_dim;
+                    }
+
+                    task.curriculum_level = parseInt(document.getElementById('editCurriculumLevel').value) || 0;
+                    isEditing = false;
+                }
+
+                // Save to server
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(tasks)
+                });
+
+                if (response.ok) {
+                    showNotification('Task saved successfully!', 'success');
+                    updateTotalTaskCount();
+                    renderTaskList(document.getElementById('searchInput').value);
+                    renderTaskDetails(task);
+                    loadGridExamples(currentTaskIndex);
+                } else {
+                    showNotification('Error saving task', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving task:', error);
+                showNotification('Error saving task: ' + error.message, 'error');
+            }
+        }
+
+        // Toggle validate status
+        async function toggleValidate() {
+            if (currentTaskIndex < 0 || currentTaskIndex >= tasks.length) {
+                showNotification('No task selected', 'error');
+                return;
+            }
+
+            try {
+                const task = tasks[currentTaskIndex];
+                // Toggle validated status (default to false if undefined)
+                task.validated = !(task.validated !== undefined && task.validated);
+
+                // Save to server
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(tasks)
+                });
+
+                if (response.ok) {
+                    const status = task.validated ? 'validated' : 'unvalidated';
+                    showNotification(`Task ${status} successfully!`, 'success');
+                    updateTotalTaskCount();
+                    renderTaskList(document.getElementById('searchInput').value);
+                    renderTaskDetails(task);
+                    loadGridExamples(currentTaskIndex);
+                } else {
+                    // Revert the change if save failed
+                    task.validated = !task.validated;
+                    showNotification('Error updating validation status', 'error');
+                }
+            } catch (error) {
+                console.error('Error toggling validation:', error);
+                // Revert the change if error occurred
+                if (currentTaskIndex >= 0 && currentTaskIndex < tasks.length) {
+                    tasks[currentTaskIndex].validated = !tasks[currentTaskIndex].validated;
+                }
+                showNotification('Error updating validation status: ' + error.message, 'error');
+            }
+        }
+
+        // Delete task
+        async function deleteTask() {
+            if (!confirm(`Are you sure you want to delete "${tasks[currentTaskIndex].name}"?`)) {
+                return;
+            }
+
+            try {
+                tasks.splice(currentTaskIndex, 1);
+                currentTaskIndex = -1;
+
+                // Save to server
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(tasks)
+                });
+
+                if (response.ok) {
+                    showNotification('Task deleted successfully!', 'success');
+                    updateTotalTaskCount();
+                    document.getElementById('content').innerHTML = `
+                        <div class="empty-state">
+                            <h2>Select a task to view details</h2>
+                            <p>Click on a task from the list to see its details</p>
+                        </div>
+                    `;
+                    renderTaskList(document.getElementById('searchInput').value);
+                } else {
+                    showNotification('Error deleting task', 'error');
+                    // Restore task if save failed
+                    tasks.splice(currentTaskIndex, 0, tasks[currentTaskIndex]);
+                }
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                showNotification('Error deleting task: ' + error.message, 'error');
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.background = '#151515';
+            notification.style.borderColor = '#00aa00';
+            notification.style.color = '#00aa00';
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Refresh grid examples
+        function refreshGridExamples() {
+            if (currentTaskIndex >= 0) {
+                loadGridExamples(currentTaskIndex);
+            }
+        }
+
+        // Load grid examples
+        async function loadGridExamples(taskIndex) {
+            const gridExamplesDiv = document.getElementById('gridExamples');
+            if (!gridExamplesDiv) return;
+
+            gridExamplesDiv.innerHTML = '<div class="loading-grids">Generating examples...</div>';
+
+            try {
+                const response = await fetch(`/generate_examples?task_index=${taskIndex}&num_examples=3`);
+                
+                // Clone response so we can read it multiple times if needed
+                const responseClone = response.clone();
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    // If JSON parsing fails, read as text to see what we got
+                    const text = await responseClone.text();
+                    const contentType = response.headers.get('content-type') || 'unknown';
+                    console.error('Failed to parse JSON. Content-Type:', contentType);
+                    console.error('Response body:', text.substring(0, 500));
+                    
+                    if (text.trim().startsWith('<')) {
+                        throw new Error(`Server returned HTML instead of JSON (likely an error page). Status: ${response.status}. Check server console for errors.`);
+                    } else {
+                        throw new Error(`Invalid JSON response: ${jsonError.message}. Response: ${text.substring(0, 200)}`);
+                    }
+                }
+
+                if (data.status === 'success' && data.examples && data.examples.length > 0) {
+                    renderGridExamples(data.examples);
+                } else {
+                    const errorMsg = data.message || 'Failed to generate examples';
+                    let errorHTML = `<div class="grid-error">
+                        <strong>Error:</strong> ${escapeHtml(errorMsg)}`;
+                    
+                    if (data.traceback) {
+                        errorHTML += `<br><br><strong>Traceback:</strong><pre style="background: #002200; padding: 10px; border: 1px solid #00aa00; overflow-x: auto; font-size: 11px; margin-top: 10px;">${escapeHtml(data.traceback)}</pre>`;
+                    }
+                    
+                    errorHTML += `</div>`;
+                    gridExamplesDiv.innerHTML = errorHTML;
+                }
+            } catch (error) {
+                console.error('Error loading grid examples:', error);
+                let errorMessage = error.message;
+                
+                // Try to get more details if it's a JSON parse error
+                if (error.message.includes('Unexpected token')) {
+                    errorMessage = 'Server returned invalid response. Check server console for errors.';
+                }
+                
+                gridExamplesDiv.innerHTML = `
+                    <div class="grid-error">
+                        Error loading examples: ${escapeHtml(errorMessage)}
+                        <br><small>Check browser console and server logs for details</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Execute program from form and display examples
+        async function executeProgram() {
+            const programText = document.getElementById('editProgram').value.trim();
+            if (!programText) {
+                showNotification('Please enter a program first', 'error');
+                return;
+            }
+
+            // Get input grid constraints from tags
+            const tagsContainer = document.getElementById('editTagsContainer');
+            const tags = Array.from(tagsContainer.querySelectorAll('.tag-chip span:first-child'))
+                .map(span => span.textContent);
+            const inputGridConstraints = tags.length > 0 ? tags : ['basic'];
+
+            // Get parameters from container
+            const parameters = getParameterTagsFromContainer();
+
+            // Show examples section and set loading state
+            const examplesSection = document.getElementById('programExamplesSection');
+            const examplesDiv = document.getElementById('programExamples');
+            const executeBtn = document.getElementById('executeProgramBtn');
+            
+            if (!examplesSection || !examplesDiv || !executeBtn) {
+                showNotification('Error: Could not find examples section', 'error');
+                return;
+            }
+
+            examplesSection.style.display = 'block';
+            examplesDiv.innerHTML = '<div class="loading-grids">Generating examples...</div>';
+            executeBtn.disabled = true;
+            executeBtn.textContent = '⏳ Executing...';
+
+            try {
+                const requestBody = {
+                    program: programText,
+                    grid_categories: inputGridConstraints,
+                    num_examples: 3
+                };
+                // Add parameters if specified
+                if (parameters && parameters.length > 0) {
+                    requestBody.parameters = parameters;
+                }
+                
+                // Add min_grid_dim and max_grid_dim if specified
+                const minGridDimInput = document.getElementById('editMinGridDim');
+                const maxGridDimInput = document.getElementById('editMaxGridDim');
+                if (minGridDimInput && minGridDimInput.value) {
+                    requestBody.min_grid_dim = parseInt(minGridDimInput.value);
+                }
+                if (maxGridDimInput && maxGridDimInput.value) {
+                    requestBody.max_grid_dim = parseInt(maxGridDimInput.value);
+                }
+                
+                const response = await fetch('/execute_program', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    const text = await response.clone().text();
+                    throw new Error(`Invalid JSON response: ${jsonError.message}. Response: ${text.substring(0, 200)}`);
+                }
+
+                if (data.status === 'success' && data.examples && data.examples.length > 0) {
+                    renderGridExamplesForProgram(data.examples);
+                } else {
+                    const errorMsg = data.message || 'Failed to generate examples';
+                    let errorHTML = `<div class="grid-error">
+                        <strong>Error:</strong> ${escapeHtml(errorMsg)}`;
+                    
+                    if (data.traceback) {
+                        errorHTML += `<br><br><strong>Traceback:</strong><pre style="background: #002200; padding: 10px; border: 1px solid #00aa00; overflow-x: auto; font-size: 11px; margin-top: 10px;">${escapeHtml(data.traceback)}</pre>`;
+                    }
+                    
+                    errorHTML += `</div>`;
+                    examplesDiv.innerHTML = errorHTML;
+                }
+            } catch (error) {
+                console.error('Error executing program:', error);
+                examplesDiv.innerHTML = `
+                    <div class="grid-error">
+                        Error executing program: ${escapeHtml(error.message)}
+                        <br><small>Check browser console and server logs for details</small>
+                    </div>
+                `;
+            } finally {
+                executeBtn.disabled = false;
+                executeBtn.textContent = '▶ Execute';
+            }
+        }
+
+        // Render grid examples for program execution (targets programExamples div)
+        function renderGridExamplesForProgram(examples) {
+            const examplesDiv = document.getElementById('programExamples');
+            if (!examplesDiv) return;
+
+            if (examples.length === 0) {
+                examplesDiv.innerHTML = '<div class="grid-error">No examples generated</div>';
+                return;
+            }
+
+            // Extract parameter values from first example (should be same for all)
+            let parametersHTML = '';
+            if (examples[0].parameters && Object.keys(examples[0].parameters).length > 0) {
+                const paramPairs = Object.entries(examples[0].parameters)
+                    .sort((a, b) => {
+                        // Sort by parameter number (param1, param2, etc.)
+                        const numA = parseInt(a[0].replace('param', ''));
+                        const numB = parseInt(b[0].replace('param', ''));
+                        return numA - numB;
+                    })
+                    .map(([key, value]) => `<span style="margin-right: 15px;"><strong>${key}</strong> = ${value}</span>`);
+                parametersHTML = `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #002200; border: 1px solid #00aa00; font-size: 11px; color: #00aa00; font-family: 'Courier New', monospace;">
+                        <strong>Parameters:</strong> ${paramPairs.join('')}
+                    </div>
+                `;
+            }
+
+            const examplesHTML = examples.map((example, idx) => {
+                const inputGridHTML = renderGrid(example.input, `Example ${idx + 1} - Input`);
+                const outputGridHTML = renderGrid(example.output, `Example ${idx + 1} - Output`);
+                
+                return `
+                    <div class="grid-example">
+                        <h4>Example ${idx + 1}</h4>
+                        <div class="grid-pair">
+                            <div class="grid-container">
+                                <label>Input</label>
+                                ${inputGridHTML}
+                            </div>
+                            <div style="align-self: center; font-size: 24px; color: #00aa00; text-shadow: 0 0 2px rgba(0, 170, 0, 0.4);">→</div>
+                            <div class="grid-container">
+                                <label>Output</label>
+                                ${outputGridHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            examplesDiv.innerHTML = `${parametersHTML}<div class="grid-examples">${examplesHTML}</div>`;
+        }
+
+        // Render grid examples
+        function renderGridExamples(examples) {
+            const gridExamplesDiv = document.getElementById('gridExamples');
+            if (!gridExamplesDiv) return;
+
+            if (examples.length === 0) {
+                gridExamplesDiv.innerHTML = '<div class="grid-error">No examples generated</div>';
+                return;
+            }
+
+            // Extract parameter values from first example (should be same for all)
+            let parametersHTML = '';
+            if (examples[0].parameters && Object.keys(examples[0].parameters).length > 0) {
+                const paramPairs = Object.entries(examples[0].parameters)
+                    .sort((a, b) => {
+                        // Sort by parameter number (param1, param2, etc.)
+                        const numA = parseInt(a[0].replace('param', ''));
+                        const numB = parseInt(b[0].replace('param', ''));
+                        return numA - numB;
+                    })
+                    .map(([key, value]) => `<span style="margin-right: 15px;"><strong>${key}</strong> = ${value}</span>`);
+                parametersHTML = `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #002200; border: 1px solid #00aa00; font-size: 11px; color: #00aa00; font-family: 'Courier New', monospace;">
+                        <strong>Parameters:</strong> ${paramPairs.join('')}
+                    </div>
+                `;
+            }
+
+            const examplesHTML = examples.map((example, idx) => {
+                const inputGridHTML = renderGrid(example.input, `Example ${idx + 1} - Input`);
+                const outputGridHTML = renderGrid(example.output, `Example ${idx + 1} - Output`);
+                
+                return `
+                    <div class="grid-example">
+                        <h4>Example ${idx + 1}</h4>
+                        <div class="grid-pair">
+                            <div class="grid-container">
+                                <label>Input</label>
+                                ${inputGridHTML}
+                            </div>
+                            <div style="align-self: center; font-size: 24px; color: #00aa00; text-shadow: 0 0 2px rgba(0, 170, 0, 0.4);">→</div>
+                            <div class="grid-container">
+                                <label>Output</label>
+                                ${outputGridHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            gridExamplesDiv.innerHTML = `${parametersHTML}<div class="grid-examples">${examplesHTML}</div>`;
+        }
+
+        // Render a single grid
+        function renderGrid(grid, label) {
+            if (!grid || !Array.isArray(grid) || grid.length === 0) {
+                return '<div class="grid-error">Invalid grid</div>';
+            }
+
+            const rows = grid.length;
+            const cols = grid[0] ? grid[0].length : 0;
+
+            // ARC color palette (standard 10 colors)
+            const colors = [
+                '#000000', // 0: black
+                '#0074D9', // 1: blue
+                '#FF4136', // 2: red
+                '#2ECC40', // 3: green
+                '#FFDC00', // 4: yellow
+                '#AAAAAA', // 5: grey
+                '#F012BE', // 6: magenta
+                '#FF851B', // 7: orange
+                '#7FDBFF', // 8: sky
+                '#870C25'  // 9: maroon
+            ];
+
+            let html = '<div class="grid-visualization">';
+            for (let i = 0; i < rows; i++) {
+                html += '<div class="grid-row">';
+                for (let j = 0; j < cols; j++) {
+                    const colorValue = grid[i][j] || 0;
+                    const colorIndex = Math.max(0, Math.min(9, Math.floor(colorValue)));
+                    const bgColor = colors[colorIndex] || '#000000';
+                    html += `<div class="grid-cell" style="background-color: ${bgColor};" title="(${i}, ${j}): ${colorValue}"></div>`;
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+
+            return html;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Format program with comments
+        function formatProgramWithComments(program, comments) {
+            if (!program || program === 'N/A') {
+                return 'N/A';
+            }
+
+            try {
+                // Try to parse as JSON first
+                let programArray;
+                try {
+                    programArray = JSON.parse(program);
+                    if (!Array.isArray(programArray)) {
+                        throw new Error('Not an array');
+                    }
+                } catch (e) {
+                    // If JSON parsing fails, parse as Python-style list string
+                    // Split by lines and extract instructions
+                    const lines = program.split('\n');
+                    programArray = [];
+                    
+                    for (let line of lines) {
+                        line = line.trim();
+                        // Skip empty lines and brackets
+                        if (!line || line === '[' || line === ']') {
+                            continue;
+                        }
+                        // Remove trailing comma if present
+                        if (line.endsWith(',')) {
+                            line = line.slice(0, -1).trim();
+                        }
+                        if (line.length > 0) {
+                            programArray.push(line);
+                        }
+                    }
+                }
+
+                let result = '';
+                for (let i = 0; i < programArray.length; i++) {
+                    const instruction = typeof programArray[i] === 'string' 
+                        ? programArray[i] 
+                        : JSON.stringify(programArray[i]);
+                    const comment = comments[i] || '';
+                    
+                    // Escape HTML for instruction
+                    const escapedInstruction = escapeHtml(instruction);
+                    
+                    // Format as: (instruction) // (comment in italics)
+                    if (comment && comment.trim()) {
+                        const escapedComment = escapeHtml(comment);
+                        result += `  ${escapedInstruction} // <em>${escapedComment}</em>\n`;
+                    } else {
+                        result += `  ${escapedInstruction}\n`;
+                    }
+                }
+                return result;
+            } catch (e) {
+                // If parsing fails, return the original program (escaped)
+                return escapeHtml(program);
+            }
+        }
+
+        // Format instructions array with inner lists on one line
+        function formatInstructions(instructions) {
+            if (!Array.isArray(instructions)) {
+                return JSON.stringify(instructions, null, 2);
+            }
+            
+            let result = '[\n';
+            for (let i = 0; i < instructions.length; i++) {
+                const item = instructions[i];
+                if (Array.isArray(item)) {
+                    // Inner list: keep on one line
+                    result += '  ' + JSON.stringify(item);
+                } else {
+                    // Other items: format normally
+                    result += '  ' + JSON.stringify(item, null, 2).split('\n').join('\n  ');
+                }
+                if (i < instructions.length - 1) {
+                    result += ',';
+                }
+                result += '\n';
+            }
+            result += ']';
+            return result;
+        }
+
+        // Format tags for display
+        function formatTagsForDisplay(constraints) {
+            if (!constraints) {
+                return '<div style="color: #008800;">No tags</div>';
+            }
+            let tags = [];
+            // Handle both array and object formats
+            if (Array.isArray(constraints)) {
+                tags = constraints.filter(tag => AVAILABLE_TAGS.includes(tag));
+            } else if (typeof constraints === 'object' && constraints.tags) {
+                tags = Array.isArray(constraints.tags) ? constraints.tags.filter(tag => AVAILABLE_TAGS.includes(tag)) : [];
+            } else if (typeof constraints === 'object') {
+                for (const key in constraints) {
+                    if (AVAILABLE_TAGS.includes(key) && constraints[key]) {
+                        tags.push(key);
+                    }
+                }
+            }
+            if (tags.length === 0) {
+                return '<div style="color: #008800;">No tags</div>';
+            }
+            return '<div style="display: flex; flex-wrap: wrap; gap: 8px;">' +
+                tags.map(tag => `<div class="tag-chip" style="margin: 0;">${escapeHtml(tag)}</div>`).join('') +
+                '</div>';
+        }
+
+        // Get tags from task's grid_categories
+        function getTagsFromTask(task) {
+            const constraints = task.grid_categories || {};
+            // Handle both array and object formats
+            if (Array.isArray(constraints)) {
+                return constraints.filter(tag => AVAILABLE_TAGS.includes(tag));
+            }
+            if (typeof constraints === 'object' && constraints.tags) {
+                return Array.isArray(constraints.tags) ? constraints.tags.filter(tag => AVAILABLE_TAGS.includes(tag)) : [];
+            }
+            // If it's an object with tag keys, extract them
+            if (typeof constraints === 'object') {
+                const tags = [];
+                for (const key in constraints) {
+                    if (AVAILABLE_TAGS.includes(key) && constraints[key]) {
+                        tags.push(key);
+                    }
+                }
+                return tags;
+            }
+            return [];
+        }
+
+        // Render tag chips in container
+        function renderTags(containerId, tags) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            tags.forEach(tag => {
+                const chip = document.createElement('div');
+                chip.className = 'tag-chip';
+                const tagSpan = document.createElement('span');
+                tagSpan.textContent = tag;
+                const removeSpan = document.createElement('span');
+                removeSpan.className = 'tag-remove';
+                removeSpan.textContent = '×';
+                removeSpan.onclick = () => removeTag(containerId, tag);
+                chip.appendChild(tagSpan);
+                chip.appendChild(removeSpan);
+                container.appendChild(chip);
+            });
+        }
+
+        // Add a tag
+        function addTag(containerId, selectId) {
+            const select = document.getElementById(selectId);
+            const container = document.getElementById(containerId);
+            if (!select || !container) return;
+            
+            const selectedTag = select.value;
+            if (!selectedTag) return;
+            
+            const currentTags = Array.from(container.querySelectorAll('.tag-chip span:first-child'))
+                .map(span => span.textContent);
+            
+            if (currentTags.length >= 5) {
+                showNotification('Maximum 5 tags allowed', 'error');
+                return;
+            }
+            
+            if (currentTags.includes(selectedTag)) {
+                showNotification('Tag already added', 'error');
+                return;
+            }
+            
+            currentTags.push(selectedTag);
+            renderTags(containerId, currentTags);
+            updateTagSelect(selectId, currentTags);
+        }
+
+        // Remove a tag
+        function removeTag(containerId, tagToRemove) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const currentTags = Array.from(container.querySelectorAll('.tag-chip span:first-child'))
+                .map(span => span.textContent)
+                .filter(tag => tag !== tagToRemove);
+            
+            renderTags(containerId, currentTags);
+            // The select ID is always 'editTagSelect' for both add and edit forms
+            updateTagSelect('editTagSelect', currentTags);
+        }
+
+        // Update tag select dropdown to show only available tags
+        function updateTagSelect(selectId, selectedTags) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Select a tag...</option>';
+            
+            AVAILABLE_TAGS.forEach(tag => {
+                if (!selectedTags.includes(tag)) {
+                    const option = document.createElement('option');
+                    option.value = tag;
+                    option.textContent = tag;
+                    select.appendChild(option);
+                }
+            });
+            
+            // Restore previous selection if it's still available
+            if (currentValue && !selectedTags.includes(currentValue)) {
+                select.value = currentValue;
+            } else {
+                select.value = '';
+            }
+            
+            // Disable select if max tags reached
+            select.disabled = selectedTags.length >= 5;
+        }
+
+        // Count parameters in program string (param1, param2, etc.)
+        function countParametersInProgram(programStr) {
+            if (!programStr || typeof programStr !== 'string') {
+                return 0;
+            }
+            const matches = programStr.match(/param(\d+)/g);
+            if (!matches) {
+                return 0;
+            }
+            let maxParam = 0;
+            matches.forEach(match => {
+                const num = parseInt(match.replace('param', ''));
+                if (num > maxParam) {
+                    maxParam = num;
+                }
+            });
+            return maxParam;
+        }
+
+        // Setup parameter tags dropdowns based on program
+        function setupParameterTags(task) {
+            const container = document.getElementById('editParametersContainer');
+            if (!container) {
+                return;
+            }
+            
+            // Get program string
+            const programStr = task.program || document.getElementById('editProgram')?.value || '';
+            const numParams = countParametersInProgram(programStr);
+            
+            // Clear container
+            container.innerHTML = '';
+            
+            if (numParams === 0) {
+                container.innerHTML = '<div class="tag-hint">No parameters found in program</div>';
+                return;
+            }
+            
+            // Get existing parameter tags (convert old format if needed)
+            let paramTags = [];
+            const taskParams = task.parameters || task.parameter;
+            if (taskParams) {
+                if (Array.isArray(taskParams)) {
+                    paramTags = [...taskParams];
+                } else if (typeof taskParams === 'string' && taskParams) {
+                    // Old format: single string, apply to all parameters
+                    paramTags = new Array(numParams).fill(taskParams);
+                } else if (typeof taskParams === 'object') {
+                    // Old format: object, extract tag
+                    let tag = '';
+                    if (taskParams.type) {
+                        tag = taskParams.type;
+                    } else if (taskParams.parameter) {
+                        tag = taskParams.parameter;
+                    } else if (taskParams.bg_color !== undefined) {
+                        tag = 'bg_color';
+                    } else if (taskParams.fg_color !== undefined) {
+                        tag = 'fg_color';
+                    } else if (taskParams.color !== undefined) {
+                        tag = 'color';
+                    } else if (taskParams.margin !== undefined) {
+                        tag = 'margin';
+                    } else if (taskParams.existing_color !== undefined) {
+                        tag = 'existing_color';
+                    }
+                    if (tag) {
+                        paramTags = new Array(numParams).fill(tag);
+                    }
+                }
+            }
+            
+            // Pad or truncate to match numParams
+            while (paramTags.length < numParams) {
+                paramTags.push('');
+            }
+            paramTags = paramTags.slice(0, numParams);
+            
+            // Create dropdown for each parameter
+            for (let i = 0; i < numParams; i++) {
+                const paramNum = i + 1;
+                const div = document.createElement('div');
+                div.style.marginBottom = '8px';
+                div.innerHTML = `
+                    <label for="editParam${paramNum}" style="display: block; margin-bottom: 4px; font-weight: 500;">
+                        Parameter ${paramNum} (param${paramNum}):
+                    </label>
+                    <select id="editParam${paramNum}" style="width: 100%; padding: 4px;">
+                        <option value="">(empty)</option>
+                        <option value="color">color</option>
+                        <option value="bg_color">bg_color</option>
+                        <option value="fg_color">fg_color</option>
+                        <option value="existing_color">existing_color</option>
+                        <option value="margin">margin</option>
+                    </select>
+                `;
+                container.appendChild(div);
+                
+                // Set the value
+                const select = document.getElementById(`editParam${paramNum}`);
+                if (select && paramTags[i]) {
+                    select.value = paramTags[i];
+                }
+            }
+        }
+
+        // Get parameter tags from container
+        function getParameterTagsFromContainer() {
+            const container = document.getElementById('editParametersContainer');
+            if (!container) {
+                return [];
+            }
+            
+            const tags = [];
+            const selects = container.querySelectorAll('select[id^="editParam"]');
+            selects.forEach(select => {
+                const value = select.value.trim();
+                tags.push(value || '');
+            });
+            
+            return tags;
+        }
+
+        // Get parameter value from task for dropdown selection (kept for backward compatibility)
+        function getParameterValue(task) {
+            const params = task.parameters || task.parameter;
+            if (!params || params === '' || (typeof params === 'object' && Object.keys(params).length === 0)) {
+                return '';
+            }
+            if (typeof params === 'string') {
+                if (params === 'color' || params === 'margin' || params === 'bg_color' || params === 'fg_color' || params === 'existing_color') {
+                    return params;
+                }
+                return '';
+            }
+            if (Array.isArray(params) && params.length > 0) {
+                // New format: return first tag
+                return params[0] || '';
+            }
+            if (typeof params === 'object') {
+                // Check if it's an object with a 'type' or 'parameter' field
+                if (params.type === 'color' || params.parameter === 'color') {
+                    return 'color';
+                }
+                if (params.type === 'margin' || params.parameter === 'margin') {
+                    return 'margin';
+                }
+                if (params.type === 'bg_color' || params.parameter === 'bg_color') {
+                    return 'bg_color';
+                }
+                if (params.type === 'fg_color' || params.parameter === 'fg_color') {
+                    return 'fg_color';
+                }
+                if (params.type === 'existing_color' || params.parameter === 'existing_color') {
+                    return 'existing_color';
+                }
+                // Check if the object itself indicates color or margin
+                if (params.color !== undefined) {
+                    return 'color';
+                }
+                if (params.margin !== undefined) {
+                    return 'margin';
+                }
+                if (params.bg_color !== undefined) {
+                    return 'bg_color';
+                }
+                if (params.fg_color !== undefined) {
+                    return 'fg_color';
+                }
+                if (params.existing_color !== undefined) {
+                    return 'existing_color';
+                }
+            }
+            return '';
+        }
+
+        // Parse comments field - handles both JSON and Python-style syntax
+        function parseCommentsField(value) {
+            if (!value || value.trim() === '') {
+                return [];
+            }
+            
+            const trimmed = value.trim();
+            
+            // First try to parse as JSON
+            try {
+                return JSON.parse(trimmed);
+            } catch (e) {
+                // If JSON parsing fails, try to convert Python-style single quotes to double quotes
+                try {
+                    // More robust conversion: replace single-quoted strings with double-quoted strings
+                    // This regex matches: '...' (including empty strings '')
+                    // It handles: 'text', '', 'text with spaces', etc.
+                    let converted = trimmed.replace(/'/g, '"');
+                    
+                    return JSON.parse(converted);
+                } catch (e2) {
+                    // If that also fails, throw a more helpful error
+                    throw new Error('Invalid format. Use JSON syntax with double quotes: ["item1", "item2"]');
+                }
+            }
+        }
+
+        // Format parameters - handle empty strings, null, undefined, objects, and arrays
+        function formatParameters(params) {
+            if (params === null || params === undefined || params === '') {
+                return '[]';
+            }
+            if (Array.isArray(params)) {
+                // New format: list of tags
+                if (params.length === 0) {
+                    return '[]';
+                }
+                return JSON.stringify(params, null, 2);
+            }
+            if (typeof params === 'string') {
+                try {
+                    // Try to parse as JSON
+                    const parsed = JSON.parse(params);
+                    return JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    // If not valid JSON, return as string in array format for backward compatibility
+                    return JSON.stringify([params], null, 2);
+                }
+            }
+            // Old format: object, convert to array format
+            return JSON.stringify(params, null, 2);
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            renderTaskList(e.target.value);
+        });
+
+        // Parse program string into instruction lines
+        function parseProgramToInstructions(programStr) {
+            if (!programStr || !programStr.trim()) {
+                return [];
+            }
+            
+            // Try to parse as JSON first
+            try {
+                const parsed = JSON.parse(programStr);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(instr => typeof instr === 'string' ? instr : JSON.stringify(instr));
+                }
+            } catch (e) {
+                // Not JSON, continue with text parsing
+            }
+            
+            // Parse as text format
+            const lines = programStr.split('\n');
+            const instructions = [];
+            
+            for (let line of lines) {
+                line = line.trim();
+                // Skip empty lines and brackets
+                if (!line || line === '[' || line === ']') {
+                    continue;
+                }
+                // Remove trailing comma if present
+                if (line.endsWith(',')) {
+                    line = line.slice(0, -1).trim();
+                }
+                if (line.length > 0) {
+                    instructions.push(line);
+                }
+            }
+            
+            return instructions;
+        }
+
+        // Extract instruction name from an instruction string
+        function extractInstructionName(instruction) {
+            // Match pattern like "get_objects(N+0)" or "del(N+1)"
+            const match = instruction.match(/^(\w+)\s*\(/);
+            return match ? match[1] : '';
+        }
+
+        // Calculate variable stack at cursor position
+        function calculateVariableStack(programStr, instructionIndex) {
+            const instructions = parseProgramToInstructions(programStr);
+            const stack = [];
+            
+            // Helper function to re-index stack variables
+            function reindexStack() {
+                stack.sort((a, b) => a.index - b.index);
+                stack.forEach((v, i) => {
+                    v.index = i;
+                });
+            }
+            
+            // First variable is always the initial input grid
+            stack.push({ index: 0, name: 'initial input grid' });
+            let nextIndex = 1;
+            
+            // Process instructions up to (but not including) the instruction at instructionIndex
+            for (let i = 0; i < Math.min(instructionIndex, instructions.length); i++) {
+                const instruction = instructions[i];
+                const instrName = extractInstructionName(instruction);
+                
+                // Check if this is a 'del' instruction
+                if (instrName === 'del') {
+                    // Extract the variable index being deleted
+                    const delMatch = instruction.match(/del\s*\(\s*N\+(\d+)\s*\)/);
+                    if (delMatch) {
+                        const delIndex = parseInt(delMatch[1]);
+                        // Remove the variable from stack (if it exists)
+                        const stackIndex = stack.findIndex(v => v.index === delIndex);
+                        if (stackIndex !== -1) {
+                            stack.splice(stackIndex, 1);
+                            // Re-index immediately after deletion
+                            reindexStack();
+                            // Update nextIndex to be the next available index
+                            nextIndex = stack.length;
+                        }
+                    }
+                } else if (instrName) {
+                    // Most instructions create a new variable
+                    // The new variable index is the next available index
+                    const newIndex = nextIndex;
+                    nextIndex++;
+                    stack.push({ index: newIndex, name: instrName });
+                }
+            }
+            
+            // Final re-index to ensure consistency
+            reindexStack();
+            
+            return stack;
+        }
+
+        // Map cursor line to instruction index (accounting for '[' and empty lines)
+        function mapCursorLineToInstructionIndex(programText, cursorLine) {
+            const lines = programText.split('\n');
+            let instructionIndex = 0;
+            
+            // Process lines up to (but not including) cursor line
+            for (let i = 0; i < cursorLine && i < lines.length; i++) {
+                const line = lines[i].trim();
+                // Skip empty lines, '[', and ']'
+                if (line && line !== '[' && line !== ']') {
+                    // Remove trailing comma if present
+                    const cleanLine = line.endsWith(',') ? line.slice(0, -1).trim() : line;
+                    if (cleanLine.length > 0) {
+                        instructionIndex++;
+                    }
+                }
+            }
+            
+            return instructionIndex;
+        }
+
+        // Update variable stack display
+        function updateVariableStackDisplay() {
+            const programTextarea = document.getElementById('editProgram');
+            const stackTextarea = document.getElementById('variableStack');
+            
+            if (!programTextarea || !stackTextarea) {
+                return;
+            }
+            
+            const programText = programTextarea.value;
+            const cursorPosition = programTextarea.selectionStart;
+            
+            // Calculate which line the cursor is on (0-indexed)
+            const textBeforeCursor = programText.substring(0, cursorPosition);
+            const cursorLine = textBeforeCursor.split('\n').length - 1;
+            
+            // Map cursor line to instruction index (accounting for '[' and empty lines)
+            const instructionIndex = mapCursorLineToInstructionIndex(programText, cursorLine);
+            
+            // Calculate variable stack at cursor position
+            const stack = calculateVariableStack(programText, instructionIndex);
+            
+            // Format stack display
+            const stackLines = stack.map(v => `N+${v.index}: ${v.name}`);
+            stackTextarea.value = stackLines.join('\n');
+        }
+
+        // Update parameter tags when program text changes
+        document.addEventListener('input', (e) => {
+            if (e.target && e.target.id === 'editProgram') {
+                // Debounce: wait a bit before updating
+                clearTimeout(window.paramUpdateTimeout);
+                window.paramUpdateTimeout = setTimeout(() => {
+                    if (isEditing || isAddingNew) {
+                        // Get current task or create a temporary one
+                        const currentTask = isEditing && currentTaskIndex >= 0 && currentTaskIndex < tasks.length
+                            ? tasks[currentTaskIndex]
+                            : { program: e.target.value };
+                        currentTask.program = e.target.value;
+                        setupParameterTags(currentTask);
+                    }
+                }, 500);
+                
+                // Update variable stack display
+                updateVariableStackDisplay();
+            }
+        });
+
+        // Update variable stack on cursor movement (selection change)
+        document.addEventListener('selectionchange', () => {
+            const programTextarea = document.getElementById('editProgram');
+            if (programTextarea && document.activeElement === programTextarea) {
+                updateVariableStackDisplay();
+            }
+        });
+
+        // Update variable stack on keyup (for arrow keys, etc.)
+        document.addEventListener('keyup', (e) => {
+            const programTextarea = document.getElementById('editProgram');
+            if (programTextarea && document.activeElement === programTextarea) {
+                // Check if it's a navigation key
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+                    updateVariableStackDisplay();
+                }
+            }
+        });
+
+        // Update variable stack on mouse click in program textarea
+        document.addEventListener('click', (e) => {
+            const programTextarea = document.getElementById('editProgram');
+            if (programTextarea && (e.target === programTextarea || programTextarea.contains(e.target))) {
+                setTimeout(() => updateVariableStackDisplay(), 0);
+            }
+        });
+
+        // Initialize
+        loadTasks();
+    </script>
+</body>
+</html>
+
