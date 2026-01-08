@@ -16,8 +16,8 @@ from dreaming.grid_example_generator import generate_grid_examples, replace_para
 import AmotizedDSL.DSL as DSL
 import AmotizedDSL.program_interpreter as pi
 from AmotizedDSL.prog_utils import ProgUtils
-import ARC_gym.utils.visualization as viz
 import copy
+from dreaming.utils import DreamingUtils
 
 
 VERBOSE = False
@@ -1871,11 +1871,11 @@ class DreamingDataGenerator:
         prog_one = parse_program_to_instruction_strings(task_one['program'])
         prog_two = parse_program_to_instruction_strings(task_two['program'])
 
-        prog_one = ProgUtils.map_refIDs_to_uuids(prog_one)
-        prog_two = ProgUtils.map_refIDs_to_uuids(prog_two)
+        prog_one = DreamingUtils.map_refIDs_to_uuids(prog_one)
+        prog_two = DreamingUtils.map_refIDs_to_uuids(prog_two)
 
-        prog_one = ProgUtils.remove_dels(prog_one)
-        prog_two = ProgUtils.remove_dels(prog_two)
+        prog_one = DreamingUtils.remove_dels(prog_one)
+        prog_two = DreamingUtils.remove_dels(prog_two)
 
         # From task_one, randomly determine a "masked" region of the program ground truth
         task_one_indices = self._get_crossover_indices(prog_one, overlap_ok=True)
@@ -1893,10 +1893,10 @@ class DreamingDataGenerator:
 
         # properly "re-assign" UUID references to objects that are no longer available in the crossover program.
         range_start = task_one_from_idx
-        crossover_prog = ProgUtils.reassign_invalid_uuids(crossover_prog, range_start)
-        crossover_prog = ProgUtils.remove_unused_instructions(crossover_prog)        
-        crossover_prog = ProgUtils.auto_add_dels(crossover_prog)
-        crossover_prog = ProgUtils.map_uuids_to_refIDs(crossover_prog)
+        crossover_prog = DreamingUtils.reassign_invalid_uuids(crossover_prog, range_start)
+        crossover_prog = DreamingUtils.remove_unused_instructions(crossover_prog)        
+        crossover_prog = DreamingUtils.auto_add_dels(crossover_prog)
+        crossover_prog = DreamingUtils.map_uuids_to_refIDs(crossover_prog)
 
         crossover_prog_txt = program_instruction_strings_to_program_str(crossover_prog)
         crossover_instructions = self._reconstruct_instructions_from_program(crossover_prog_txt)
