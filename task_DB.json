@@ -49662,7 +49662,7 @@
   },
   {
     "name": "Draw Contour Bottom + Left Contour",
-    "program": "[\n  set_pixels(N+0, 0, N+0.y, param1),\n  index(N+1, 9),\n  set_pixels(N+0, N+0.max_x, N+0.y, param1),\n  index(5, N+1.x),\n  set_pixels(N+0, N+0.x, 0, param1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, N+0.max_y, param1),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  set_pixels(N+0, 0, N+0.y, param1),\n  index(N+1, 9),\n  set_pixels(N+0, N+0.max_x, N+0.y, param1),\n  index(5, N+1.x),\n  set_pixels(N+0, N+0.x, 0, param1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, N+0.max_y, param1),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -49746,6 +49746,20 @@
         56,
         2,
         "param1",
+        3
+      ],
+      [
+        0,
+        51,
+        1,
+        61,
+        3
+      ],
+      [
+        0,
+        51,
+        1,
+        61,
         3
       ],
       [

@@ -385,7 +385,9 @@ class DreamingDataGenerator:
                         strict=False,  # Don't fail if we can't generate exactly 3
                         parameters=parameter_tags,
                         min_grid_dim=min_grid_dim,
-                        max_grid_dim=max_grid_dim
+                        max_grid_dim=max_grid_dim,
+                        task_name=task.get('name'),
+                        catch_exceptions=False
                     )
                     
                     if len(examples) < 3:
@@ -3020,14 +3022,39 @@ class DreamingDataGenerator:
 
         return new_tasks
 
-    def generate(self, N, basename):
+    def generate(self, N, basename, curriculum_lvl_arg=None, mixed_mode=False):
         """Generate N task examples and save to JSON file.
         
         Args:
-            N: Number of task examples to generate for each curriculum level
-            filename: Output JSON basename (_<curriculum level>.json gets appended to it)
+            N: Number of task examples to generate for each curriculum level (or overall if mixed_mode=True)
+            basename: Output JSON basename (_<curriculum level>.json gets appended to it, or .json if mixed_mode=True)
+            curriculum_lvl_arg: Optional curriculum level to generate. If None, generates all levels.
+            mixed_mode: If True, generates N examples overall from all tasks regardless of curriculum level.
         """
+        if mixed_mode:
+            # Generate N examples overall from all tasks, ignoring curriculum levels
+            print(f"==> Generating {N} examples in mixed mode (all curriculum levels)")
+            tasks = self.sample_task_DB()
+            
+            if len(tasks) == 0:
+                print("No tasks found in task_DB")
+                return
+            
+            samples = self.generate_samples(tasks, N)
+            
+            # Save to JSON file with integer lists on single lines
+            current_filename = f'{basename}.json'
+            with open(current_filename, 'w') as f:
+                formatted_json = format_json_with_compact_integer_lists(samples, indent=2)
+                f.write(formatted_json)
+            
+            print(f"Successfully generated {len(samples)} task examples and saved to {current_filename}")
+            return
+        
         curriculum_lvl = 0
+        if curriculum_lvl_arg is not None:
+            curriculum_lvl = curriculum_lvl_arg
+
         while True:
             print(f"==> Generating data for curriculum level {curriculum_lvl}")
             tasks = self.sample_task_DB(curriculum_lvl)
@@ -3045,6 +3072,9 @@ class DreamingDataGenerator:
             
             print(f"Successfully generated {len(samples)} task examples and saved to {current_filename}")
 
+            if curriculum_lvl_arg is not None:
+                break
+            
             curriculum_lvl += 1
 
     def generate_incremental(self, N, basename, task_list):
