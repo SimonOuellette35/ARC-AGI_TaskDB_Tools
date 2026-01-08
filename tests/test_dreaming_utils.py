@@ -1,7 +1,7 @@
 import random
 import uuid
 import numpy as np
-from AmotizedDSL.prog_utils import ProgUtils
+from dreaming.utils import DreamingUtils
 from unittest.mock import patch
 
 
@@ -24,7 +24,7 @@ def test_remove_unused_instructions():
         '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
     ]
 
-    cleaned_prog = ProgUtils.remove_unused_instructions(unused_instrs)
+    cleaned_prog = DreamingUtils.remove_unused_instructions(unused_instrs)
 
     expected_cleaned_prog = [
         '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
@@ -70,7 +70,7 @@ def test_reassign_invalid_uuids2():
         return original_choice(a, **kwargs)
     
     with patch('AmotizedDSL.prog_utils.np.random.choice', side_effect=deterministic_choice):
-        fixed_uuid_refs = ProgUtils.reassign_invalid_uuids(invalid_uuid_refs, 0)
+        fixed_uuid_refs = DreamingUtils.reassign_invalid_uuids(invalid_uuid_refs, 0)
 
     expected_output = [
         '024a9166-4372-46e2-b709-c03e61828a98 = count_values(input_grid, input_grid)',
@@ -118,7 +118,7 @@ def test_reassign_invalid_uuids1():
         return original_choice(a, **kwargs)
     
     with patch('AmotizedDSL.prog_utils.np.random.choice', side_effect=deterministic_choice):
-        fixed_uuid_refs = ProgUtils.reassign_invalid_uuids(invalid_uuid_refs, 7)
+        fixed_uuid_refs = DreamingUtils.reassign_invalid_uuids(invalid_uuid_refs, 7)
 
     expected_uuid_refs = [
         '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(input_grid)',
@@ -190,7 +190,7 @@ def test_map_refIDs_to_uuids():
             'del(N+0)'
         ]
 
-        uuid_prog = ProgUtils.map_refIDs_to_uuids(prog_example)
+        uuid_prog = DreamingUtils.map_refIDs_to_uuids(prog_example)
 
     expected_uuid_prog = [
         'bdd640fb-0667-4ad1-9c80-317fa3b1799d = get_objects(input_grid)',
@@ -261,7 +261,7 @@ def test_map_uuids_to_refIDs():
         'del(43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
     ]
 
-    refID_prog = ProgUtils.map_uuids_to_refIDs(uuid_prog)
+    refID_prog = DreamingUtils.map_uuids_to_refIDs(uuid_prog)
 
     for line in refID_prog:
         print(line)
@@ -335,7 +335,7 @@ def test_remove_dels():
         'del(N+0)'
     ]
 
-    prog_without_dels = ProgUtils.remove_dels(prog_example)
+    prog_without_dels = DreamingUtils.remove_dels(prog_example)
 
     expected_output = [
         'get_objects(N+0)', 
@@ -390,7 +390,7 @@ def test_remove_dels():
         'del(43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
     ]
 
-    uuid_prog_without_dels = ProgUtils.remove_dels(uuid_prog)
+    uuid_prog_without_dels = DreamingUtils.remove_dels(uuid_prog)
 
     expected_output = [
         '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
@@ -434,7 +434,7 @@ def test_auto_add_dels():
         '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
     ]
 
-    added_dels_prog = ProgUtils.auto_add_dels(no_del_uuid_prog)
+    added_dels_prog = DreamingUtils.auto_add_dels(no_del_uuid_prog)
 
     expected_uuid_prog = [
         '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(input_grid)',
