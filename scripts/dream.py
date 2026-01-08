@@ -1,4 +1,5 @@
 import sys
+import argparse
 from pathlib import Path
 
 # Add project root to Python path
@@ -14,6 +15,10 @@ from collections import Counter
 
 counter = Counter()
 
+parser = argparse.ArgumentParser()
+parser.add_argument('N', type=int, nargs='?', default=50, help='Parameter value to pass to gen.dream() (default: 50)')
+args = parser.parse_args()
+
 print("Generating...")
-combined_tasks = gen.dream(50)
+combined_tasks = gen.dream(args.N)
 print("Done")
