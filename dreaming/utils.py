@@ -157,7 +157,7 @@ class DreamingUtils:
             if replacement in uuid_to_primitive:
                 prim_name = uuid_to_primitive[replacement]
                 return_type = ProgUtils.static_infer_result_type(prim_name)
-                is_gridobject = (return_type == 1)
+                is_gridobject = (return_type == ProgUtils.TYPE_GRIDOBJECT or return_type == ProgUtils.TYPE_LIST_GRIDOBJECT)
             
             # If there was an original attribute, randomly decide what to do with it
             if preserve_attr:
