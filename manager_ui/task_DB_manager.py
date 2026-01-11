@@ -22,7 +22,7 @@ TASK_DB_PATH = project_root / 'task_DB.json'
 import AmotizedDSL.DSL as DSL
 from AmotizedDSL.prog_utils import ProgUtils
 from dreaming.grid_example_generator import generate_grid_examples
-from dreaming.dreaming_data_generator import parse_program_string
+from dreaming.dreaming_data_generator import block_of_text_to_program_lines
 import re
 
 
@@ -243,9 +243,9 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
                         try:
                             program_str = task['program']
                             # Parse program string to hand-written format
-                            program_hand_written = parse_program_string(program_str, N)
+                            program_hand_written = block_of_text_to_program_lines(program_str)
                             # Convert to instructions
-                            instructions = ProgUtils.convert_prog_to_token_seq(program_hand_written, DSL)
+                            instructions = ProgUtils.convert_user_format_to_token_seq(program_hand_written, DSL)
                             task['instructions'] = instructions
                             print(f"[SAVE] Regenerated instructions for task '{task.get('name', 'Unknown')}' at index {i}")
                         except Exception as e:
@@ -440,9 +440,9 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
             # Parse program string to hand-written format
             N = len(DSL.semantics)
             try:
-                program_hand_written = parse_program_string(program_str, N)
+                program_lines = block_of_text_to_program_lines(program_str)
                 # Convert to instructions
-                instructions = ProgUtils.convert_prog_to_token_seq(program_hand_written, DSL)
+                instructions = ProgUtils.convert_user_format_to_token_seq(program_lines, DSL)
             except Exception as e:
                 import traceback
                 error_trace = traceback.format_exc()

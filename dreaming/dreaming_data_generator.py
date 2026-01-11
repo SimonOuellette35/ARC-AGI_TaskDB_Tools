@@ -22,19 +22,16 @@ from dreaming.utils import DreamingUtils
 
 VERBOSE = False
 
-
-def parse_program_string(program_str, N):
-    """
-    Parse a program string (human-readable format) into hand-written format.
+def block_of_text_to_program_lines(program_str):
+    """Take a block of text from a task DB program description and convert it into a list of
+    user format instruction strings.
     
     Args:
         program_str: String like "[\n  get_objects(N+0),\n  del(N+0),\n  ...\n]"
-        N: Base offset for N+ references (typically len(DSL.semantics))
     
     Returns:
-        List of tuples in hand-written format: [(primitive_name, [args...]), ...]
+        List of instruction strings like ["get_objects(N+0)", "del(N+0)", ...]
     """
-    # Remove outer brackets and split by lines
     program_str = program_str.strip()
     if program_str.startswith('['):
         program_str = program_str[1:]
@@ -43,174 +40,34 @@ def parse_program_string(program_str, N):
     
     lines = [line.strip() for line in program_str.split('\n') if line.strip() and line.strip() not in ['[', ']']]
     
-    program = []
+    instructions = []
     for line in lines:
-        # Remove trailing comma if present
         line = line.rstrip(',').strip()
-        if not line:
-            continue
-        
-        # Parse function call: primitive_name(arg1, arg2, ...)
-        match = re.match(r'(\w+)\((.*)\)', line)
-        if not match:
-            continue
-        
-        primitive_name = match.group(1)
-        args_str = match.group(2)
-        
-        # Parse arguments
-        args = []
-        if args_str.strip():
-            # Split arguments, handling nested structures
-            arg_parts = []
-            depth = 0
-            current_arg = []
-            i = 0
-            while i < len(args_str):
-                char = args_str[i]
-                if char == '[':
-                    depth += 1
-                    current_arg.append(char)
-                elif char == ']':
-                    depth -= 1
-                    current_arg.append(char)
-                elif char == ',' and depth == 0:
-                    # End of argument
-                    arg_parts.append(''.join(current_arg).strip())
-                    current_arg = []
-                else:
-                    current_arg.append(char)
-                i += 1
-            if current_arg:
-                arg_parts.append(''.join(current_arg).strip())
-            
-            # Parse each argument
-            for arg_str in arg_parts:
-                arg_str = arg_str.strip()
-                if not arg_str:
-                    continue
-                
-                # Strip quotes from string arguments (handles "param1" -> param1)
-                original_arg_str = arg_str
-                parsed_string_value = None
-                if (arg_str.startswith('"') and arg_str.endswith('"')) or (arg_str.startswith("'") and arg_str.endswith("'")):
-                    try:
-                        # Use ast.literal_eval to properly parse quoted strings
-                        parsed_string_value = ast.literal_eval(arg_str)
-                        if isinstance(parsed_string_value, str):
-                            arg_str = parsed_string_value
-                    except:
-                        # If parsing fails, just strip quotes manually
-                        arg_str = arg_str[1:-1]
-                
-                # Check for N+offset syntax
-                n_match = re.match(r'N\+(\d+)', arg_str)
-                if n_match:
-                    offset = int(n_match.group(1))
-                    value = N + offset
-                    # Check for attribute access like N+0.c
-                    if '.' in arg_str:
-                        attr_match = re.match(r'N\+\d+(\.\w+)', arg_str)
-                        if attr_match:
-                            attr = attr_match.group(1)
-                            args.append((value, attr))
-                        else:
-                            args.append(value)
-                    else:
-                        args.append(value)
-                # Check for parameter placeholder like param1, param2
-                elif arg_str.startswith('param') and arg_str[5:].isdigit():
-                    args.append(arg_str)  # Keep as string placeholder
-                # Check for nested list
-                elif arg_str.startswith('[') and arg_str.endswith(']'):
-                    # Parse as simple list of values
-                    inner = arg_str[1:-1].strip()
-                    if inner:
-                        # Split by comma, but handle nested structures
-                        nested_items = []
-                        depth = 0
-                        current_item = []
-                        for char in inner:
-                            if char == '[':
-                                depth += 1
-                                current_item.append(char)
-                            elif char == ']':
-                                depth -= 1
-                                current_item.append(char)
-                            elif char == ',' and depth == 0:
-                                nested_items.append(''.join(current_item).strip())
-                                current_item = []
-                            else:
-                                current_item.append(char)
-                        if current_item:
-                            nested_items.append(''.join(current_item).strip())
-                        
-                        parsed_items = []
-                        for item in nested_items:
-                            item = item.strip()
-                            if not item:
-                                continue
-                            
-                            # Strip quotes from string items (handles "param1" -> param1)
-                            original_item = item
-                            parsed_string_value = None
-                            if (item.startswith('"') and item.endswith('"')) or (item.startswith("'") and item.endswith("'")):
-                                try:
-                                    # Use ast.literal_eval to properly parse quoted strings
-                                    parsed_string_value = ast.literal_eval(item)
-                                    if isinstance(parsed_string_value, str):
-                                        item = parsed_string_value
-                                except:
-                                    # If parsing fails, just strip quotes manually
-                                    item = item[1:-1]
-                            
-                            # Check for N+offset syntax
-                            n_match = re.match(r'N\+(\d+)', item)
-                            if n_match:
-                                offset = int(n_match.group(1))
-                                parsed_items.append(N + offset)
-                            # Check for integer
-                            elif item.isdigit() or (item.startswith('-') and item[1:].isdigit()):
-                                parsed_items.append(int(item))
-                            # Check for parameter placeholder
-                            elif item.startswith('param') and item[5:].isdigit():
-                                parsed_items.append(item)
-                            else:
-                                # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
-                                if parsed_string_value is not None:
-                                    parsed_items.append(parsed_string_value)
-                                else:
-                                    try:
-                                        parsed_items.append(ast.literal_eval(item))
-                                    except:
-                                        parsed_items.append(item)
-                        args.append(parsed_items)
-                    else:
-                        args.append([])
-                # Check for integer
-                elif arg_str.isdigit() or (arg_str.startswith('-') and arg_str[1:].isdigit()):
-                    args.append(int(arg_str))
-                # Check for attribute access on integer (like 0.c)
-                elif re.match(r'(\d+)\.(\w+)', arg_str):
-                    match_attr = re.match(r'(\d+)\.(\w+)', arg_str)
-                    int_val = int(match_attr.group(1))
-                    attr = '.' + match_attr.group(2)
-                    args.append((int_val, attr))
-                else:
-                    # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
-                    if parsed_string_value is not None:
-                        args.append(parsed_string_value)
-                    else:
-                        try:
-                            args.append(ast.literal_eval(arg_str))
-                        except:
-                            # Keep as string if can't parse
-                            args.append(arg_str)
-        
-        program.append((primitive_name, args))
+        if line:
+            instructions.append(line)
     
-    return program
+    return instructions
 
+def program_lines_to_block_of_text(instruction_strings):
+    """Convert a list of user format instruction strings back to a single block of text to be saved in Task DB.
+    
+    Args:
+        instruction_strings: List of instruction strings
+    
+    Returns:
+        Program string in the format "[\n  instruction1,\n  instruction2,\n  ...\n]"
+    """
+    if not instruction_strings:
+        return "[]"
+    
+    formatted = "[\n"
+    for i, instr in enumerate(instruction_strings):
+        formatted += f"  {instr}"
+        if i < len(instruction_strings) - 1:
+            formatted += ","
+        formatted += "\n"
+    formatted += "]"
+    return formatted
 
 def format_json_with_compact_integer_lists(obj, indent=2, current_indent=0):
     """Recursively format JSON with integer lists on a single line."""
@@ -263,53 +120,6 @@ def format_json_with_compact_integer_lists(obj, indent=2, current_indent=0):
         # Primitive types
         return json.dumps(obj)
 
-
-def parse_program_to_instruction_strings(program_str):
-    """Parse a program string into a list of instruction strings.
-    
-    Args:
-        program_str: String like "[\n  get_objects(N+0),\n  del(N+0),\n  ...\n]"
-    
-    Returns:
-        List of instruction strings like ["get_objects(N+0)", "del(N+0)", ...]
-    """
-    program_str = program_str.strip()
-    if program_str.startswith('['):
-        program_str = program_str[1:]
-    if program_str.endswith(']'):
-        program_str = program_str[:-1]
-    
-    lines = [line.strip() for line in program_str.split('\n') if line.strip() and line.strip() not in ['[', ']']]
-    
-    instructions = []
-    for line in lines:
-        line = line.rstrip(',').strip()
-        if line:
-            instructions.append(line)
-    
-    return instructions
-
-
-def program_instruction_strings_to_program_str(instruction_strings):
-    """Convert a list of instruction strings back to program string format.
-    
-    Args:
-        instruction_strings: List of instruction strings
-    
-    Returns:
-        Program string in the format "[\n  instruction1,\n  instruction2,\n  ...\n]"
-    """
-    if not instruction_strings:
-        return "[]"
-    
-    formatted = "[\n"
-    for i, instr in enumerate(instruction_strings):
-        formatted += f"  {instr}"
-        if i < len(instruction_strings) - 1:
-            formatted += ","
-        formatted += "\n"
-    formatted += "]"
-    return formatted
 
 
 class DreamingDataGenerator:
@@ -440,8 +250,8 @@ class DreamingDataGenerator:
             return None
         
         # Parse programs to instruction strings
-        prog_one_instrs = parse_program_to_instruction_strings(program_one_str)
-        prog_two_instrs = parse_program_to_instruction_strings(program_two_str)
+        prog_one_instrs = block_of_text_to_program_lines(program_one_str)
+        prog_two_instrs = block_of_text_to_program_lines(program_two_str)
         
         return prog_one_instrs, prog_two_instrs
 
@@ -945,27 +755,6 @@ class DreamingDataGenerator:
             print(f"  both_have_get_objects: {both_have_get_objects}, both_have_get_bg: {both_have_get_bg}")
             sys.exit(1)
 
-    def _reconstruct_instructions_from_program(self, program_str):
-        """Reconstruct instructions from a program string.
-        
-        Args:
-            program_str: Program string in the format "[\n  instruction1,\n  ...\n]"
-        
-        Returns:
-            List of instruction sequences (token sequences), or None if parsing fails
-        """
-        try:
-            N = len(DSL.semantics)
-            program_hand_written = parse_program_string(program_str, N)
-            # Check if get_objects and get_bg are in the parsed program
-            instructions = ProgUtils.convert_prog_to_token_seq(program_hand_written, DSL)
-            return instructions
-        except Exception as e:
-            print(f"==> ERROR in _reconstruct_instructions_from_program: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
-
     def _create_combined_task_dict(self, task_one, task_two, combined_program_str,
                                    combined_instructions):
         """Create the final combined task dictionary.
@@ -1053,10 +842,10 @@ class DreamingDataGenerator:
         combined_prog_instrs = prog_one_instrs + prog_two_instrs
         
         # Reconstruct program string
-        combined_program_str = program_instruction_strings_to_program_str(combined_prog_instrs)
+        combined_program_str = program_lines_to_block_of_text(combined_prog_instrs)
         
         # Reconstruct instructions from the combined program
-        combined_instructions = self._reconstruct_instructions_from_program(combined_program_str)
+        combined_instructions = ProgUtils.convert_user_format_to_token_seq(combined_prog_instrs)
         if combined_instructions is None:
             print("==> ERROR: _reconstruct_instructions_from_program returned None!")
             return None
@@ -1369,7 +1158,7 @@ class DreamingDataGenerator:
                 min_grid_dim=original_min_grid_dim,
                 max_grid_dim=original_max_grid_dim,
                 parameter_values=predetermined_param_values,
-                catch_exception=False,
+                catch_exceptions=False,
                 task_name = 'New mutation task'
             )
             
@@ -1785,8 +1574,8 @@ class DreamingDataGenerator:
         program_two_str = task_two.get('program', '')
         
         if program_one_str and program_two_str:
-            prog_one_instrs = parse_program_to_instruction_strings(program_one_str)
-            prog_two_instrs = parse_program_to_instruction_strings(program_two_str)
+            prog_one_instrs = block_of_text_to_program_lines(program_one_str)
+            prog_two_instrs = block_of_text_to_program_lines(program_two_str)
             
             has_get_objects_one = any('get_objects(' in instr for instr in prog_one_instrs)
             has_get_objects_two = any('get_objects(' in instr for instr in prog_two_instrs)
@@ -1868,8 +1657,8 @@ class DreamingDataGenerator:
 
     def apply_crossover(self, task_one, task_two):
 
-        prog_one = parse_program_to_instruction_strings(task_one['program'])
-        prog_two = parse_program_to_instruction_strings(task_two['program'])
+        prog_one = block_of_text_to_program_lines(task_one['program'])
+        prog_two = block_of_text_to_program_lines(task_two['program'])
 
         prog_one = DreamingUtils.map_refIDs_to_uuids(prog_one)
         prog_two = DreamingUtils.map_refIDs_to_uuids(prog_two)
@@ -1898,8 +1687,8 @@ class DreamingDataGenerator:
         crossover_prog = DreamingUtils.auto_add_dels(crossover_prog)
         crossover_prog = DreamingUtils.map_uuids_to_refIDs(crossover_prog)
 
-        crossover_prog_txt = program_instruction_strings_to_program_str(crossover_prog)
-        crossover_instructions = self._reconstruct_instructions_from_program(crossover_prog_txt)
+        crossover_prog_txt = program_lines_to_block_of_text(crossover_prog)
+        crossover_instructions = ProgUtils.convert_user_format_to_token_seq(crossover_prog)
         if crossover_instructions is None:
             return None, False
        
@@ -2280,7 +2069,7 @@ class DreamingDataGenerator:
             return None, False
         
         # Parse program to instruction strings
-        instructions = parse_program_to_instruction_strings(program_str)
+        instructions = block_of_text_to_program_lines(program_str)
         if len(instructions) == 0:
             return None, False
         
@@ -2293,7 +2082,13 @@ class DreamingDataGenerator:
             # For edit, we need an existing instruction
             if len(instructions) == 0:
                 return None, False
-            line_idx = random.randint(0, len(instructions) - 1)
+            # Filter out 'del' statements - never pick them for mutation
+            non_del_indices = [i for i in range(len(instructions)) 
+                              if not instructions[i].strip().startswith('del(')]
+            if len(non_del_indices) == 0:
+                # All instructions are 'del' statements, cannot mutate
+                return None, False
+            line_idx = random.choice(non_del_indices)
         else:
             # For add, we can insert anywhere
             line_idx = random.randint(0, len(instructions))
@@ -2387,6 +2182,7 @@ class DreamingDataGenerator:
             if slot_type == 'argument':
                 arg_slot_idx = random.randint(0, len(args) - 1)
 
+            stack_size = self._count_stack_at_line(instructions, line_idx)
             if slot_type == 'primitive':
                 # Replace the primitive with a different non-del one
                 non_del_prims = self._get_non_del_primitives()
@@ -2408,7 +2204,6 @@ class DreamingDataGenerator:
             
             else:  # slot_type == 'argument'
                 # Edit a specific argument
-                stack_size = self._count_stack_at_line(instructions, line_idx)
                 current_arg = args[arg_slot_idx]
                 
                 # Generate a new value for this argument (simplified, no type checking)
@@ -2424,12 +2219,12 @@ class DreamingDataGenerator:
                 mutated_instrs[line_idx] = new_instr
         
         # Reconstruct program string
-        mutated_prog = program_instruction_strings_to_program_str(mutated_instrs)
+        mutated_prog = program_lines_to_block_of_text(mutated_instrs)
 
         # Convert instruction strings directly to token sequences to ensure they match the mutations
         mutated_instructions = []
         for instr_str in mutated_instrs:
-            token_seq = ProgUtils.convert_instruction_string_to_token_seq(instr_str)
+            token_seq = ProgUtils.convert_user_instruction_to_token_seq(instr_str)
             if token_seq is None:
                 #print(f"Mutation failed: cannot convert instruction string to token sequence: {instr_str}")
                 return None, False
@@ -2438,7 +2233,6 @@ class DreamingDataGenerator:
         # Validate reference IDs
         valid = ProgUtils.validate_ref_ids(mutated_instrs)
         if not valid:
-            #print("Mutation failed: ref ids invalid.")
             return None, False
                 
         # Create mutated task dictionary
