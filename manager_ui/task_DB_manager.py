@@ -245,7 +245,7 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
                             # Parse program string to hand-written format
                             program_hand_written = block_of_text_to_program_lines(program_str)
                             # Convert to instructions
-                            instructions = ProgUtils.convert_user_format_to_token_seq(program_hand_written, DSL)
+                            instructions = ProgUtils.convert_user_format_to_token_seq(program_hand_written)
                             task['instructions'] = instructions
                             print(f"[SAVE] Regenerated instructions for task '{task.get('name', 'Unknown')}' at index {i}")
                         except Exception as e:
