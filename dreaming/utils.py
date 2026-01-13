@@ -7,29 +7,10 @@ from AmotizedDSL.prog_utils import ProgUtils
 class DreamingUtils:
         
     @staticmethod
-    def remove_unused_instructions(crossover_instrs):
-        """Remove all instructions whose generated UUID is not used at all in the program.
-        
-        Args:
-            crossover_instrs: List of instruction strings in format 
-                '<uuid> = <instruction>(arguments)' or 'del(<uuid>)'
-        
-        Returns:
-            Modified list of instruction strings with unused instructions removed
-        """
-        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-        
-        # Find the index of the last non-del instruction
-        last_non_del_idx = None
-        for i in range(len(crossover_instrs) - 1, -1, -1):
-            if not crossover_instrs[i].strip().startswith('del('):
-                last_non_del_idx = i
-                break
-        
-        # Collect all UUIDs that are used (appear in arguments or del statements)
+    def collect_used_uuids(uuid_instrs, uuid_pattern):
         used_uuids = set()
-        
-        for instr in crossover_instrs:
+
+        for instr in uuid_instrs:
             instr_stripped = instr.strip()
             if instr_stripped.startswith('del('):
                 # For del instructions, the UUID in del() is being used
@@ -44,9 +25,19 @@ class DreamingUtils:
                     uuid_matches = re.findall(uuid_pattern, instruction_part, re.IGNORECASE)
                     used_uuids.update(uuid_matches)
         
-        # If there's a last non-del instruction, mark its output UUID as used
+        return used_uuids
+
+    @staticmethod
+    def mark_last_non_del_used(uuid_instrs, used_uuids, uuid_pattern):
+        # Find the index of the last non-del instruction
+        last_non_del_idx = None
+        for i in range(len(uuid_instrs) - 1, -1, -1):
+            if not uuid_instrs[i].strip().startswith('del('):
+                last_non_del_idx = i
+                break       
+        
         if last_non_del_idx is not None:
-            last_instr = crossover_instrs[last_non_del_idx].strip()
+            last_instr = uuid_instrs[last_non_del_idx].strip()
             if not last_instr.startswith('del('):
                 match = re.match(r'^([^=]+)\s*=\s*(.+)$', last_instr)
                 if match:
@@ -54,10 +45,31 @@ class DreamingUtils:
                     output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
                     if output_uuid_match:
                         used_uuids.add(output_uuid_match.group(0))
+
+        return last_non_del_idx
+
+    @staticmethod
+    def remove_unused_instructions(uuid_instrs):
+        """Remove all instructions whose generated UUID is not used at all in the program.
+        
+        Args:
+            crossover_instrs: List of instruction strings in format 
+                '<uuid> = <instruction>(arguments)' or 'del(<uuid>)'
+        
+        Returns:
+            Modified list of instruction strings with unused instructions removed
+        """
+        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        
+        # Collect all UUIDs that are used (appear in arguments or del statements)
+        used_uuids = DreamingUtils.collect_used_uuids(uuid_instrs, uuid_pattern)
+
+        # If there's a last non-del instruction, mark its output UUID as used
+        last_non_del_idx = DreamingUtils.mark_last_non_del_used(uuid_instrs, used_uuids, uuid_pattern)
         
         # Filter out instructions whose output UUID is never used
         result = []
-        for i, instr in enumerate(crossover_instrs):
+        for i, instr in enumerate(uuid_instrs):
             instr_stripped = instr.strip()
             if instr_stripped.startswith('del('):
                 # Keep all del instructions
@@ -86,10 +98,127 @@ class DreamingUtils:
         
         return result
 
+    @staticmethod
+    def get_replacement_uuid_with_attr(valid_uuids, uuid_to_primitive, available_attributes, preserve_attr=None):
+        """Get a replacement UUID, potentially with an attribute appended if it's a GridObject.
+        
+        Args:
+            preserve_attr: If provided, randomly decide whether to preserve, change, or remove this attribute
+        
+        Returns:
+            Replacement UUID with optional attribute
+        """
+        replacement = np.random.choice(list(valid_uuids))
+        
+        # Check if the replacement UUID's primitive returns GridObject
+        is_gridobject = False
+        if replacement in uuid_to_primitive:
+            prim_name = uuid_to_primitive[replacement]
+            return_type = ProgUtils.static_infer_result_type(prim_name)
+            is_gridobject = (return_type == ProgUtils.TYPE_GRIDOBJECT or return_type == ProgUtils.TYPE_LIST_GRIDOBJECT)
+        
+        # If there was an original attribute, randomly decide what to do with it
+        if preserve_attr:
+            if not is_gridobject or not available_attributes:
+                # If replacement is not a GridObject or no attributes available, remove attribute
+                return replacement
+            
+            # Randomly decide: preserve (1/3), change (1/3), or remove (1/3)
+            rand_val = np.random.random()
+            if rand_val < 0.33:
+                # Preserve the original attribute
+                return replacement + preserve_attr
+            elif rand_val < 0.67:
+                # Change to a random attribute
+                attr = np.random.choice(available_attributes)
+                return replacement + attr
+            else:
+                # Remove the attribute
+                return replacement
+        
+        # No original attribute - randomly decide whether to add one
+        if is_gridobject:
+            # Randomly decide whether to append an attribute
+            if np.random.random() < 0.5 and available_attributes:
+                # Append a random attribute
+                attr = np.random.choice(available_attributes)
+                return replacement + attr
+        return replacement
 
     @staticmethod
-    def reassign_invalid_uuids(crossover_instrs, range_start):
-        """Reassign invalid UUIDs in crossover instructions.
+    def process_instr_invalid_uuid(instr, valid_uuids, uuid_pattern, uuid_to_primitive, available_attributes):
+        
+        def perform_replacement(instruction_part, uuid_matches):
+            instr_copy = instruction_part
+            for match in reversed(uuid_matches):
+                uuid_val = match.group(0)
+                match_end = match.end()
+                
+                # Check if there's an attribute after the UUID
+                attr_match = re.match(attr_pattern, instruction_part[match_end:])
+                attr_str = None
+                if attr_match:
+                    attr_str = attr_match.group(0)
+                    match_end = match_end + len(attr_str)
+                
+                # Check if base UUID (without attribute) is valid
+                base_uuid = uuid_val
+                if base_uuid not in valid_uuids:
+                    # Get replacement UUID, preserving attribute if it exists
+                    replacement = DreamingUtils.get_replacement_uuid_with_attr(valid_uuids, uuid_to_primitive,
+                                                                                available_attributes, preserve_attr=attr_str)
+                    instr_copy = instr_copy[:match.start()] + replacement + instr_copy[match_end:]
+
+            return instr_copy
+
+        # format is '<output_uuid> = <instruction>(arguments)'
+        match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr)
+        if match:
+            output_uuid_str = match.group(1).strip()
+            instruction_part = match.group(2).strip()
+            
+            # Extract output UUID
+            output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+            output_uuid = None
+            if output_uuid_match:
+                output_uuid = output_uuid_match.group(0)
+            
+            # Extract primitive name for this instruction
+            prim_match = re.match(r'^(\w+)\(', instruction_part)
+            prim_name = prim_match.group(1) if prim_match else None
+            
+            # Extract all UUIDs from arguments (the instruction part)
+            uuid_matches = list(re.finditer(uuid_pattern, instruction_part, re.IGNORECASE))
+            
+            # Pattern to match attributes (one or more attribute chains like .x, .y.x, etc.)
+            attr_pattern = r'(\.\w+)+'
+            
+            # Replace invalid UUIDs in arguments
+            # Note: 'input_grid' references won't match UUID pattern, so they won't be reassigned
+            # (input_grid is always valid and is included in valid_uuids)
+            instr_copy = perform_replacement(instruction_part, uuid_matches)
+
+            # Reconstruct the instruction
+            if output_uuid:
+                # Add output UUID to valid set for subsequent instructions
+                valid_uuids.add(output_uuid)
+                # Store primitive name for this UUID
+                if prim_name:
+                    uuid_to_primitive[output_uuid] = prim_name
+
+                return f"{output_uuid} = {instr_copy}"
+            else:
+                return f"{output_uuid_str} = {instr_copy}"
+        else:
+            # Fallback: if format doesn't match, try to replace UUIDs anyway
+            uuid_matches = list(re.finditer(uuid_pattern, instr, re.IGNORECASE))
+            attr_pattern = r'(\.\w+)+'
+            return perform_replacement(instr, uuid_matches)            
+
+
+    @staticmethod
+    def reassign_invalid_uuids(uuid_no_del_instrs, range_start):
+        """Reassign invalid UUIDs in a program in uuid-format with no del. (intermediate step for crossover operation)
         
         Goes through program instructions starting from range_start. For each instruction,
         if it has arguments that refer to a UUID that does not exist (i.e. there is no 
@@ -117,7 +246,7 @@ class DreamingUtils:
         valid_uuids.add('input_grid')
         
         for i in range(range_start):
-            instr = crossover_instrs[i].strip()
+            instr = uuid_no_del_instrs[i].strip()
             if not instr.startswith('del('):
                 # Extract output UUID (the UUID before '=') and primitive name
                 match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr)
@@ -139,182 +268,21 @@ class DreamingUtils:
         
         # If no valid UUIDs exist, we can't reassign anything
         if not valid_uuids:
-            return crossover_instrs
-        
-        def get_replacement_uuid_with_attr(preserve_attr=None):
-            """Get a replacement UUID, potentially with an attribute appended if it's a GridObject.
-            
-            Args:
-                preserve_attr: If provided, randomly decide whether to preserve, change, or remove this attribute
-            
-            Returns:
-                Replacement UUID with optional attribute
-            """
-            replacement = np.random.choice(list(valid_uuids))
-            
-            # Check if the replacement UUID's primitive returns GridObject
-            is_gridobject = False
-            if replacement in uuid_to_primitive:
-                prim_name = uuid_to_primitive[replacement]
-                return_type = ProgUtils.static_infer_result_type(prim_name)
-                is_gridobject = (return_type == ProgUtils.TYPE_GRIDOBJECT or return_type == ProgUtils.TYPE_LIST_GRIDOBJECT)
-            
-            # If there was an original attribute, randomly decide what to do with it
-            if preserve_attr:
-                if not is_gridobject or not available_attributes:
-                    # If replacement is not a GridObject or no attributes available, remove attribute
-                    return replacement
+            return uuid_no_del_instrs
                 
-                # Randomly decide: preserve (1/3), change (1/3), or remove (1/3)
-                rand_val = np.random.random()
-                if rand_val < 0.33:
-                    # Preserve the original attribute
-                    return replacement + preserve_attr
-                elif rand_val < 0.67:
-                    # Change to a random attribute
-                    attr = np.random.choice(available_attributes)
-                    return replacement + attr
-                else:
-                    # Remove the attribute
-                    return replacement
-            
-            # No original attribute - randomly decide whether to add one
-            if is_gridobject:
-                # Randomly decide whether to append an attribute
-                if np.random.random() < 0.5 and available_attributes:
-                    # Append a random attribute
-                    attr = np.random.choice(available_attributes)
-                    return replacement + attr
-            return replacement
-        
-        result = list(crossover_instrs)
+        result = list(uuid_no_del_instrs)
         
         # Process instructions from range_start onwards
-        for i in range(range_start, len(crossover_instrs)):
+        for i in range(range_start, len(uuid_no_del_instrs)):
             instr = result[i].strip()
             
-            if instr.startswith('del('):
-                # For del instructions, extract UUID from del(<uuid>)
-                uuid_matches = list(re.finditer(uuid_pattern, instr, re.IGNORECASE))
-                attr_pattern = r'(\.\w+)+'
-                instr_copy = instr
-                for match in reversed(uuid_matches):
-                    uuid_val = match.group(0)
-                    match_end = match.end()
-                    
-                    # Check if there's an attribute after the UUID
-                    attr_match = re.match(attr_pattern, instr[match_end:])
-                    attr_str = None
-                    if attr_match:
-                        attr_str = attr_match.group(0)
-                        match_end = match_end + len(attr_str)
-                    
-                    # Check if base UUID (without attribute) is valid
-                    base_uuid = uuid_val
-                    if base_uuid not in valid_uuids:
-                        # Replace with random valid UUID (no attributes for del instructions, ignore attr_str)
-                        replacement = np.random.choice(list(valid_uuids))
-                        instr_copy = instr_copy[:match.start()] + replacement + instr_copy[match_end:]
-                # Note: 'input_grid' won't match UUID pattern, so it won't be reassigned in del() instructions
-                result[i] = instr_copy
-            else:
-                # Non-del instruction: format is '<output_uuid> = <instruction>(arguments)'
-                match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr)
-                if match:
-                    output_uuid_str = match.group(1).strip()
-                    instruction_part = match.group(2).strip()
-                    
-                    # Extract output UUID
-                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
-                    output_uuid = None
-                    if output_uuid_match:
-                        output_uuid = output_uuid_match.group(0)
-                    
-                    # Extract primitive name for this instruction
-                    prim_match = re.match(r'^(\w+)\(', instruction_part)
-                    prim_name = prim_match.group(1) if prim_match else None
-                    
-                    # Extract all UUIDs from arguments (the instruction part)
-                    uuid_matches = list(re.finditer(uuid_pattern, instruction_part, re.IGNORECASE))
-                    
-                    # Pattern to match attributes (one or more attribute chains like .x, .y.x, etc.)
-                    attr_pattern = r'(\.\w+)+'
-                    
-                    # Replace invalid UUIDs in arguments
-                    # Note: 'input_grid' references won't match UUID pattern, so they won't be reassigned
-                    # (input_grid is always valid and is included in valid_uuids)
-                    instr_copy = instruction_part
-                    for match in reversed(uuid_matches):
-                        uuid_val = match.group(0)
-                        match_end = match.end()
-                        
-                        # Check if there's an attribute after the UUID
-                        attr_match = re.match(attr_pattern, instruction_part[match_end:])
-                        attr_str = None
-                        if attr_match:
-                            attr_str = attr_match.group(0)
-                            match_end = match_end + len(attr_str)
-                        
-                        # Check if base UUID (without attribute) is valid
-                        base_uuid = uuid_val
-                        if base_uuid not in valid_uuids:
-                            # Get replacement UUID, preserving attribute if it exists
-                            replacement = get_replacement_uuid_with_attr(preserve_attr=attr_str)
-                            instr_copy = instr_copy[:match.start()] + replacement + instr_copy[match_end:]
-                    
-                    # Reconstruct the instruction
-                    if output_uuid:
-                        result[i] = f"{output_uuid} = {instr_copy}"
-                        # Add output UUID to valid set for subsequent instructions
-                        valid_uuids.add(output_uuid)
-                        # Store primitive name for this UUID
-                        if prim_name:
-                            uuid_to_primitive[output_uuid] = prim_name
-                    else:
-                        result[i] = f"{output_uuid_str} = {instr_copy}"
-                else:
-                    # Fallback: if format doesn't match, try to replace UUIDs anyway
-                    uuid_matches = list(re.finditer(uuid_pattern, instr, re.IGNORECASE))
-                    attr_pattern = r'(\.\w+)+'
-                    instr_copy = instr
-                    for match in reversed(uuid_matches):
-                        uuid_val = match.group(0)
-                        match_end = match.end()
-                        
-                        # Check if there's an attribute after the UUID
-                        attr_match = re.match(attr_pattern, instr[match_end:])
-                        attr_str = None
-                        if attr_match:
-                            attr_str = attr_match.group(0)
-                            match_end = match_end + len(attr_str)
-                        
-                        # Check if base UUID (without attribute) is valid
-                        base_uuid = uuid_val
-                        if base_uuid not in valid_uuids:
-                            replacement = get_replacement_uuid_with_attr(preserve_attr=attr_str)
-                            instr_copy = instr_copy[:match.start()] + replacement + instr_copy[match_end:]
-                    # Note: 'input_grid' won't match UUID pattern, so it won't be reassigned
-                    result[i] = instr_copy
+            result[i] = DreamingUtils.process_instr_invalid_uuid(instr, valid_uuids, uuid_pattern, uuid_to_primitive,
+                                                                 available_attributes)
         
         return result
 
-        
     @staticmethod
-    def map_uuids_to_refIDs(uuid_instructions):
-        """Transform absolute UUIDs back into relative refIDs (N+X) for each step.
-        
-        This is the reverse operation of map_refIDs_to_uuids.
-        
-        Args:
-            uuid_instructions: List of instruction strings with UUIDs in format 
-                ['<uuid> = <instruction>(arguments)', 'del(<uuid>)', ...]
-        
-        Returns:
-            List of instruction strings with UUIDs replaced by refIDs relative to current stack size
-        """
-        # UUID pattern: 8-4-4-4-12 hexadecimal digits separated by hyphens
-        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-        
+    def collect_output_uuids(uuid_instructions, uuid_pattern):
         # Collect all output UUIDs (the ones on the left side of '=')
         output_uuids = set()
         all_uuids = set()
@@ -333,7 +301,153 @@ class DreamingUtils:
             # Collect all UUIDs from this instruction
             uuids = re.findall(uuid_pattern, original_instr, re.IGNORECASE)
             all_uuids.update(uuids)
+
+        return output_uuids, all_uuids
+
+    @staticmethod
+    def map_uuid_to_refIDs_instruction(original_instr, uuid_pattern, stack):
+        # Check if this is a del instruction or an assignment format instruction
+        if original_instr.startswith('del('):
+            # Delete instruction: format is 'del(<uuid>)'
+            instr_copy = original_instr
+            
+            # Check if "input_grid" is being deleted (before replacement)
+            has_input_grid = 'input_grid' in original_instr
+            
+            # Replace "input_grid" with "N+0" first
+            instr_copy = instr_copy.replace('input_grid', 'N+0')
+            
+            # Extract all UUIDs from this instruction
+            uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+            
+            # Replace each UUID with its refID based on current stack state
+            # Process in reverse order to maintain string positions
+            for match in reversed(uuid_matches):
+                obj_uuid = match.group(0)
+                try:
+                    idx = stack.index(obj_uuid)
+                    ref_id = f"N+{idx}"
+                    instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
+                except ValueError:
+                    # UUID not in current stack - this shouldn't happen if the input is valid
+                    # But handle gracefully by keeping the UUID
+                    pass
+            
+            # Update stack: remove the deleted UUID
+            if uuid_matches:
+                del_uuid = uuid_matches[0].group(0)  # Get the UUID being deleted
+                if del_uuid in stack:
+                    stack.remove(del_uuid)
+            elif has_input_grid:
+                # Handle "input_grid" deletion - it was replaced with "N+0" but we need to remove it from stack
+                if 'input_grid' in stack:
+                    stack.remove('input_grid')
+
+            return instr_copy
+            
+        else:
+            # Non-del instruction: format is '<output_uuid> = <instruction>(arguments)'
+            # Extract the output UUID (before the '=') and the instruction part (after the '=')
+            match = re.match(r'^([^=]+)\s*=\s*(.+)$', original_instr)
+            if match:
+                output_uuid_str = match.group(1).strip()
+                instruction_part = match.group(2).strip()
+                
+                # Extract the output UUID
+                output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                if output_uuid_match:
+                    output_uuid = output_uuid_match.group(0)
+                    
+                    # Replace each UUID in arguments with its refID based on current stack state
+                    instr_copy = instruction_part
+                    
+                    # First, handle "input_grid" references (they don't match UUID pattern)
+                    if 'input_grid' in instr_copy:
+                        if 'input_grid' in stack:
+                            idx = stack.index('input_grid')
+                            ref_id = f"N+{idx}"
+                            # Replace "input_grid" (and any attributes like "input_grid.x")
+                            # Use regex to match "input_grid" followed by optional attribute
+                            input_grid_pattern = r'input_grid(\.\w+)*'
+                            instr_copy = re.sub(input_grid_pattern, lambda m: ref_id + (m.group(1) if m.group(1) else ''), instr_copy)
+                    
+                    # Then, extract and replace UUIDs
+                    uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+                    for match in reversed(uuid_matches):
+                        obj_uuid = match.group(0)
+                        try:
+                            idx = stack.index(obj_uuid)
+                            ref_id = f"N+{idx}"
+                            # Check if there's an attribute after the UUID
+                            attr_pattern = r'(\.\w+)+'
+                            match_end = match.end()
+                            attr_match = re.match(attr_pattern, instr_copy[match_end:])
+                            attr_str = ''
+                            if attr_match:
+                                attr_str = attr_match.group(0)
+                                match_end = match_end + len(attr_str)
+                            instr_copy = instr_copy[:match.start()] + ref_id + attr_str + instr_copy[match_end:]
+                        except ValueError:
+                            # UUID not in current stack - this shouldn't happen if the input is valid
+                            # But handle gracefully by keeping the UUID
+                            pass
+                    
+                    # Update stack: add the output UUID
+                    stack.append(output_uuid)
+                    return instr_copy
+
+                else:
+                    # Fallback: if format doesn't match, try old format
+                    instr_copy = original_instr
+                    # Replace "input_grid" with "N+0" first
+                    instr_copy = instr_copy.replace('input_grid', 'N+0')
+                    uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+                    for match in reversed(uuid_matches):
+                        obj_uuid = match.group(0)
+                        try:
+                            idx = stack.index(obj_uuid)
+                            ref_id = f"N+{idx}"
+                            instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
+                        except ValueError:
+                            pass
+
+                    return instr_copy
+            else:
+                # Fallback: if format doesn't match, try old format
+                instr_copy = original_instr
+                # Replace "input_grid" with "N+0" first
+                instr_copy = instr_copy.replace('input_grid', 'N+0')
+                uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+                for match in reversed(uuid_matches):
+                    obj_uuid = match.group(0)
+                    try:
+                        idx = stack.index(obj_uuid)
+                        ref_id = f"N+{idx}"
+                        instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
+                    except ValueError:
+                        pass
+
+                return instr_copy
+
+
+    @staticmethod
+    def map_uuids_to_refIDs(uuid_instructions):
+        """Transform absolute UUIDs back into relative refIDs (N+X) for each step.
         
+        This is the reverse operation of map_refIDs_to_uuids.
+        
+        Args:
+            uuid_instructions: List of instruction strings with UUIDs in format 
+                ['<uuid> = <instruction>(arguments)', 'del(<uuid>)', ...]
+        
+        Returns:
+            List of instruction strings with UUIDs replaced by refIDs relative to current stack size
+        """
+        # UUID pattern: 8-4-4-4-12 hexadecimal digits separated by hyphens
+        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        
+        output_uuids, all_uuids = DreamingUtils.collect_output_uuids(uuid_instructions, uuid_pattern)
+
         if not all_uuids:
             return uuid_instructions
         
@@ -383,129 +497,13 @@ class DreamingUtils:
         
         transformed = []
         
-        for i, instr in enumerate(uuid_instructions):
+        for instr in uuid_instructions:
+
             original_instr = instr.strip()
-            
-            # Check if this is a del instruction or an assignment format instruction
-            if original_instr.startswith('del('):
-                # Delete instruction: format is 'del(<uuid>)'
-                instr_copy = original_instr
-                
-                # Check if "input_grid" is being deleted (before replacement)
-                has_input_grid = 'input_grid' in original_instr
-                
-                # Replace "input_grid" with "N+0" first
-                instr_copy = instr_copy.replace('input_grid', 'N+0')
-                
-                # Extract all UUIDs from this instruction
-                uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
-                
-                # Replace each UUID with its refID based on current stack state
-                # Process in reverse order to maintain string positions
-                for match in reversed(uuid_matches):
-                    obj_uuid = match.group(0)
-                    try:
-                        idx = stack.index(obj_uuid)
-                        ref_id = f"N+{idx}"
-                        instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
-                    except ValueError:
-                        # UUID not in current stack - this shouldn't happen if the input is valid
-                        # But handle gracefully by keeping the UUID
-                        pass
-                
-                transformed.append(instr_copy)
-                
-                # Update stack: remove the deleted UUID
-                if uuid_matches:
-                    del_uuid = uuid_matches[0].group(0)  # Get the UUID being deleted
-                    if del_uuid in stack:
-                        stack.remove(del_uuid)
-                elif has_input_grid:
-                    # Handle "input_grid" deletion - it was replaced with "N+0" but we need to remove it from stack
-                    if 'input_grid' in stack:
-                        stack.remove('input_grid')
-            else:
-                # Non-del instruction: format is '<output_uuid> = <instruction>(arguments)'
-                # Extract the output UUID (before the '=') and the instruction part (after the '=')
-                match = re.match(r'^([^=]+)\s*=\s*(.+)$', original_instr)
-                if match:
-                    output_uuid_str = match.group(1).strip()
-                    instruction_part = match.group(2).strip()
-                    
-                    # Extract the output UUID
-                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
-                    if output_uuid_match:
-                        output_uuid = output_uuid_match.group(0)
-                        
-                        # Replace each UUID in arguments with its refID based on current stack state
-                        instr_copy = instruction_part
-                        
-                        # First, handle "input_grid" references (they don't match UUID pattern)
-                        if 'input_grid' in instr_copy:
-                            if 'input_grid' in stack:
-                                idx = stack.index('input_grid')
-                                ref_id = f"N+{idx}"
-                                # Replace "input_grid" (and any attributes like "input_grid.x")
-                                # Use regex to match "input_grid" followed by optional attribute
-                                input_grid_pattern = r'input_grid(\.\w+)*'
-                                instr_copy = re.sub(input_grid_pattern, lambda m: ref_id + (m.group(1) if m.group(1) else ''), instr_copy)
-                        
-                        # Then, extract and replace UUIDs
-                        uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
-                        for match in reversed(uuid_matches):
-                            obj_uuid = match.group(0)
-                            try:
-                                idx = stack.index(obj_uuid)
-                                ref_id = f"N+{idx}"
-                                # Check if there's an attribute after the UUID
-                                attr_pattern = r'(\.\w+)+'
-                                match_end = match.end()
-                                attr_match = re.match(attr_pattern, instr_copy[match_end:])
-                                attr_str = ''
-                                if attr_match:
-                                    attr_str = attr_match.group(0)
-                                    match_end = match_end + len(attr_str)
-                                instr_copy = instr_copy[:match.start()] + ref_id + attr_str + instr_copy[match_end:]
-                            except ValueError:
-                                # UUID not in current stack - this shouldn't happen if the input is valid
-                                # But handle gracefully by keeping the UUID
-                                pass
-                        
-                        transformed.append(instr_copy)
-                        
-                        # Update stack: add the output UUID
-                        stack.append(output_uuid)
-                    else:
-                        # Fallback: if format doesn't match, try old format
-                        instr_copy = original_instr
-                        # Replace "input_grid" with "N+0" first
-                        instr_copy = instr_copy.replace('input_grid', 'N+0')
-                        uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
-                        for match in reversed(uuid_matches):
-                            obj_uuid = match.group(0)
-                            try:
-                                idx = stack.index(obj_uuid)
-                                ref_id = f"N+{idx}"
-                                instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
-                            except ValueError:
-                                pass
-                        transformed.append(instr_copy)
-                else:
-                    # Fallback: if format doesn't match, try old format
-                    instr_copy = original_instr
-                    # Replace "input_grid" with "N+0" first
-                    instr_copy = instr_copy.replace('input_grid', 'N+0')
-                    uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
-                    for match in reversed(uuid_matches):
-                        obj_uuid = match.group(0)
-                        try:
-                            idx = stack.index(obj_uuid)
-                            ref_id = f"N+{idx}"
-                            instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
-                        except ValueError:
-                            pass
-                    transformed.append(instr_copy)
-        
+            transformed_instr = DreamingUtils.map_uuid_to_refIDs_instruction(original_instr, uuid_pattern, stack)
+
+            transformed.append(transformed_instr)
+
         return transformed
 
     @staticmethod
