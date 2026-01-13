@@ -51119,7 +51119,7 @@
   },
   {
     "name": "Fill Inside Contour",
-    "program": "[\n  index(N+0, N+0),\n  get_bg(N+0),\n  del(N+0),\n  crop(N+0, 1, 1, N+0.max_x, N+0.max_y),\n  del(N+0),\n  set_color(N+1, \"param1\"),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+1),\n  del(N+0)\n]",
+    "program": "[\n  get_bg(N+0),\n  crop(N+0, 1, 1, N+0.max_x, N+0.max_y),\n  del(N+0),\n  set_color(N+1, \"param1\"),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+1),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
