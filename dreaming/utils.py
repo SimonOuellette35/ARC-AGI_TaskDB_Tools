@@ -355,63 +355,45 @@ class DreamingUtils:
                 
                 # Extract the output UUID
                 output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
-                if output_uuid_match:
-                    output_uuid = output_uuid_match.group(0)
-                    
-                    # Replace each UUID in arguments with its refID based on current stack state
-                    instr_copy = instruction_part
-                    
-                    # First, handle "input_grid" references (they don't match UUID pattern)
-                    if 'input_grid' in instr_copy:
-                        if 'input_grid' in stack:
-                            idx = stack.index('input_grid')
-                            ref_id = f"N+{idx}"
-                            # Replace "input_grid" (and any attributes like "input_grid.x")
-                            # Use regex to match "input_grid" followed by optional attribute
-                            input_grid_pattern = r'input_grid(\.\w+)*'
-                            instr_copy = re.sub(input_grid_pattern, lambda m: ref_id + (m.group(1) if m.group(1) else ''), instr_copy)
-                    
-                    # Then, extract and replace UUIDs
-                    uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
-                    for match in reversed(uuid_matches):
-                        obj_uuid = match.group(0)
-                        try:
-                            idx = stack.index(obj_uuid)
-                            ref_id = f"N+{idx}"
-                            # Check if there's an attribute after the UUID
-                            attr_pattern = r'(\.\w+)+'
-                            match_end = match.end()
-                            attr_match = re.match(attr_pattern, instr_copy[match_end:])
-                            attr_str = ''
-                            if attr_match:
-                                attr_str = attr_match.group(0)
-                                match_end = match_end + len(attr_str)
-                            instr_copy = instr_copy[:match.start()] + ref_id + attr_str + instr_copy[match_end:]
-                        except ValueError:
-                            # UUID not in current stack - this shouldn't happen if the input is valid
-                            # But handle gracefully by keeping the UUID
-                            pass
-                    
-                    # Update stack: add the output UUID
-                    stack.append(output_uuid)
-                    return instr_copy
-
-                else:
-                    # Fallback: if format doesn't match, try old format
-                    instr_copy = original_instr
-                    # Replace "input_grid" with "N+0" first
-                    instr_copy = instr_copy.replace('input_grid', 'N+0')
-                    uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
-                    for match in reversed(uuid_matches):
-                        obj_uuid = match.group(0)
-                        try:
-                            idx = stack.index(obj_uuid)
-                            ref_id = f"N+{idx}"
-                            instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
-                        except ValueError:
-                            pass
-
-                    return instr_copy
+                output_uuid = output_uuid_match.group(0)
+                
+                # Replace each UUID in arguments with its refID based on current stack state
+                instr_copy = instruction_part
+                
+                # First, handle "input_grid" references (they don't match UUID pattern)
+                if 'input_grid' in instr_copy:
+                    if 'input_grid' in stack:
+                        idx = stack.index('input_grid')
+                        ref_id = f"N+{idx}"
+                        # Replace "input_grid" (and any attributes like "input_grid.x")
+                        # Use regex to match "input_grid" followed by optional attribute
+                        input_grid_pattern = r'input_grid(\.\w+)*'
+                        instr_copy = re.sub(input_grid_pattern, lambda m: ref_id + (m.group(1) if m.group(1) else ''), instr_copy)
+                
+                # Then, extract and replace UUIDs
+                uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+                for match in reversed(uuid_matches):
+                    obj_uuid = match.group(0)
+                    try:
+                        idx = stack.index(obj_uuid)
+                        ref_id = f"N+{idx}"
+                        # Check if there's an attribute after the UUID
+                        attr_pattern = r'(\.\w+)+'
+                        match_end = match.end()
+                        attr_match = re.match(attr_pattern, instr_copy[match_end:])
+                        attr_str = ''
+                        if attr_match:
+                            attr_str = attr_match.group(0)
+                            match_end = match_end + len(attr_str)
+                        instr_copy = instr_copy[:match.start()] + ref_id + attr_str + instr_copy[match_end:]
+                    except ValueError:
+                        # UUID not in current stack - this shouldn't happen if the input is valid
+                        # But handle gracefully by keeping the UUID
+                        pass
+                
+                # Update stack: add the output UUID
+                stack.append(output_uuid)
+                return instr_copy
             else:
                 # Fallback: if format doesn't match, try old format
                 instr_copy = original_instr

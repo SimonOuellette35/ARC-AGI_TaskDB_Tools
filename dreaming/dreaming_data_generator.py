@@ -724,15 +724,6 @@ class DreamingDataGenerator:
         elif has_get_objects_one and has_rebuild_one and has_get_objects_two and (ends_with_crop_two or ends_with_arg_min_or_max_two):
             composition_case = 4
         
-        # print(f"==> Composition case: {composition_case}")
-        # print(f"\thas_get_objects_one: {has_get_objects_one}")
-        # print(f"\thas_get_objects_two: {has_get_objects_two}")
-        # print(f"\thas_rebuild_one: {has_rebuild_one}")
-        # print(f"\thas_rebuild_two: {has_rebuild_two}")
-        # print(f"\tends_with_crop_one: {ends_with_crop_one}")
-        # print(f"\tends_with_crop_two: {ends_with_crop_two}")
-        # print(f"\has_arg_min_or_max_one: {has_arg_min_or_max_one}")
-
         # Validation: task_one is not a rebuild_grid task, task_two is an object task
         if (has_get_objects_one and not has_rebuild_one) and has_get_objects_two:
             #print("==> Invalid composition: task_one is not a rebuild_grid task and task_two is an object task")
@@ -857,6 +848,111 @@ class DreamingDataGenerator:
         
         return combined_task
 
+    def _has_valid_object_mask(self, input_grid_np, object_mask):
+        # Check if we have a valid object_mask
+        # Tasks that require get_objects/get_bg need a valid object mask
+        grid_height, grid_width = input_grid_np.shape[:2]
+        
+        # Check if object_mask is valid (not None, not empty list, not all zeros)
+        has_valid_mask = False
+        object_mask_np = None
+        
+        if object_mask is not None:
+            # Convert object_mask to numpy if needed
+            if isinstance(object_mask, list):
+                # Empty list means no object mask
+                if len(object_mask) == 0:
+                    has_valid_mask = False
+                else:
+                    object_mask_np = np.array(object_mask, dtype=np.int32)
+                    has_valid_mask = True
+            else:
+                object_mask_np = object_mask.copy()
+                has_valid_mask = True
+            
+            # If we have an object_mask, ensure it's valid shape
+            if has_valid_mask and object_mask_np is not None:
+                # Ensure 2D
+                if object_mask_np.ndim != 2:
+                    if object_mask_np.size == grid_height * grid_width:
+                        object_mask_np = object_mask_np.reshape(grid_height, grid_width)
+                    else:
+                        has_valid_mask = False
+                elif object_mask_np.shape != (grid_height, grid_width):
+                    if object_mask_np.size == grid_height * grid_width:
+                        object_mask_np = object_mask_np.reshape(grid_height, grid_width)
+                    else:
+                        has_valid_mask = False
+                
+                # Check if mask is all zeros (empty mask - not valid)
+                if has_valid_mask and np.all(object_mask_np == 0):
+                    has_valid_mask = False
+
+        return has_valid_mask, object_mask_np
+
+    def _process_parameters(self, parameter_tags, example_params, input_grid_np, attempt):
+        # Handle parameters if needed
+        # Only process parameters if the task actually has parameter tags
+        # If parameter_tags is empty, skip parameter handling entirely (even if example_params is provided)
+        if parameter_tags and len(parameter_tags) > 0:
+            # Extract unique colors from input grid for parameter assignment
+            unique_colors = np.unique(input_grid_np).tolist()
+            if not unique_colors:
+                unique_colors = [0]
+            
+            # Try to use parameters from example if available
+            param_values = {}
+            used_colors = set()
+            
+            # First, try to map example_params to our parameter indices
+            if example_params:
+                for param_name, param_value in example_params.items():
+                    # param_name is like 'param1', 'param2', etc. (1-based)
+                    # Convert to 0-based index
+                    try:
+                        param_idx = int(param_name.replace('param', '')) - 1
+                        if 0 <= param_idx < len(parameter_tags):
+                            param_values[param_idx] = param_value
+                            if isinstance(param_value, (int, float)) and not isinstance(param_value, bool):
+                                used_colors.add(int(param_value))
+                    except (ValueError, AttributeError):
+                        pass
+            
+            # Fill in remaining parameters
+            for i, tag in enumerate(parameter_tags):
+                if i in param_values:
+                    # Already set from example_params
+                    continue
+                
+                if tag == 'bg_color':
+                    # Use a default bg_color
+                    bg_color = 0 if 0 in unique_colors else (unique_colors[0] if unique_colors else 0)
+                    param_values[i] = bg_color
+                    used_colors.add(bg_color)
+                elif tag in ('fg_color', 'color', 'existing_color'):
+                    # Pick a color that hasn't been used
+                    # Use deterministic selection based on attempt number
+                    available_colors = sorted([c for c in unique_colors if c not in used_colors])
+                    if available_colors:
+                        # Use attempt number to cycle through available colors deterministically
+                        color_idx = attempt % len(available_colors)
+                        color = available_colors[color_idx]
+                        param_values[i] = color
+                        used_colors.add(color)
+                    else:
+                        param_values[i] = unique_colors[0] if unique_colors else 0
+                elif tag == 'margin':
+                    # Assign margin parameter (random integer between 1 and 5)
+                    # Use attempt number to cycle through values deterministically
+                    margin_value = (attempt % 5) + 1  # Values 1-5
+                    param_values[i] = margin_value
+                # For other tags, we can assign default values or skip
+            
+            if param_values:
+                instructions_to_execute = replace_parameter_placeholders(
+                    instructions_to_execute, parameter_tags, param_values
+                )
+
     def _apply_task_to_input_grid(self, task, input_grid, object_mask=None, example_params=None, attempt=0):
         """Apply a task's program to a specific input grid.
         
@@ -900,44 +996,7 @@ class DreamingDataGenerator:
             
             instructions_to_execute = instructions
             if has_get_objects or has_get_bg:
-                # Check if we have a valid object_mask
-                # Tasks that require get_objects/get_bg need a valid object mask
-                grid_height, grid_width = input_grid_np.shape[:2]
-                
-                # Check if object_mask is valid (not None, not empty list, not all zeros)
-                has_valid_mask = False
-                object_mask_np = None
-                
-                if object_mask is not None:
-                    # Convert object_mask to numpy if needed
-                    if isinstance(object_mask, list):
-                        # Empty list means no object mask
-                        if len(object_mask) == 0:
-                            has_valid_mask = False
-                        else:
-                            object_mask_np = np.array(object_mask, dtype=np.int32)
-                            has_valid_mask = True
-                    else:
-                        object_mask_np = object_mask.copy()
-                        has_valid_mask = True
-                    
-                    # If we have an object_mask, ensure it's valid shape
-                    if has_valid_mask and object_mask_np is not None:
-                        # Ensure 2D
-                        if object_mask_np.ndim != 2:
-                            if object_mask_np.size == grid_height * grid_width:
-                                object_mask_np = object_mask_np.reshape(grid_height, grid_width)
-                            else:
-                                has_valid_mask = False
-                        elif object_mask_np.shape != (grid_height, grid_width):
-                            if object_mask_np.size == grid_height * grid_width:
-                                object_mask_np = object_mask_np.reshape(grid_height, grid_width)
-                            else:
-                                has_valid_mask = False
-                        
-                        # Check if mask is all zeros (empty mask - not valid)
-                        if has_valid_mask and np.all(object_mask_np == 0):
-                            has_valid_mask = False
+                has_valid_mask, object_mask_np = self._has_valid_object_mask(input_grid_np, object_mask)
                 
                 # If task requires object mask but we don't have a valid one, skip execution
                 if not has_valid_mask:
@@ -956,69 +1015,9 @@ class DreamingDataGenerator:
                 else:
                     initial_state[0].append(bg_grid[0])
                     instructions_to_execute = instructions[1:]
-            
-            # Handle parameters if needed
-            # Only process parameters if the task actually has parameter tags
-            # If parameter_tags is empty, skip parameter handling entirely (even if example_params is provided)
-            if parameter_tags and len(parameter_tags) > 0:
-                # Extract unique colors from input grid for parameter assignment
-                unique_colors = np.unique(input_grid_np).tolist()
-                if not unique_colors:
-                    unique_colors = [0]
-                
-                # Try to use parameters from example if available
-                param_values = {}
-                used_colors = set()
-                
-                # First, try to map example_params to our parameter indices
-                if example_params:
-                    for param_name, param_value in example_params.items():
-                        # param_name is like 'param1', 'param2', etc. (1-based)
-                        # Convert to 0-based index
-                        try:
-                            param_idx = int(param_name.replace('param', '')) - 1
-                            if 0 <= param_idx < len(parameter_tags):
-                                param_values[param_idx] = param_value
-                                if isinstance(param_value, (int, float)) and not isinstance(param_value, bool):
-                                    used_colors.add(int(param_value))
-                        except (ValueError, AttributeError):
-                            pass
-                
-                # Fill in remaining parameters
-                for i, tag in enumerate(parameter_tags):
-                    if i in param_values:
-                        # Already set from example_params
-                        continue
-                    
-                    if tag == 'bg_color':
-                        # Use a default bg_color
-                        bg_color = 0 if 0 in unique_colors else (unique_colors[0] if unique_colors else 0)
-                        param_values[i] = bg_color
-                        used_colors.add(bg_color)
-                    elif tag in ('fg_color', 'color', 'existing_color'):
-                        # Pick a color that hasn't been used
-                        # Use deterministic selection based on attempt number
-                        available_colors = sorted([c for c in unique_colors if c not in used_colors])
-                        if available_colors:
-                            # Use attempt number to cycle through available colors deterministically
-                            color_idx = attempt % len(available_colors)
-                            color = available_colors[color_idx]
-                            param_values[i] = color
-                            used_colors.add(color)
-                        else:
-                            param_values[i] = unique_colors[0] if unique_colors else 0
-                    elif tag == 'margin':
-                        # Assign margin parameter (random integer between 1 and 5)
-                        # Use attempt number to cycle through values deterministically
-                        margin_value = (attempt % 5) + 1  # Values 1-5
-                        param_values[i] = margin_value
-                    # For other tags, we can assign default values or skip
-                
-                if param_values:
-                    instructions_to_execute = replace_parameter_placeholders(
-                        instructions_to_execute, parameter_tags, param_values
-                    )
-            
+                        
+            instructions_to_execute = self._process_parameters(parameter_tags, example_params, input_grid_np, attempt)
+
             # Execute program
             debug_info = {}
             debug_info['task_name'] = task['name']
@@ -1143,13 +1142,10 @@ class DreamingDataGenerator:
         mutated_parameter_tags = mutated_task.get('parameters', [])
         if not isinstance(mutated_parameter_tags, list):
             mutated_parameter_tags = []
-        mutated_grid_categories = mutated_task.get('grid_categories', ['basic'])
-        mutated_min_grid_dim = mutated_task.get('min_grid_dim')
-        mutated_max_grid_dim = mutated_task.get('max_grid_dim')
         
         try:
             # Generate examples from original task using predetermined parameter values
-            input_grid_examples = generate_grid_examples(
+            grid_examples = generate_grid_examples(
                 original_instructions,
                 num_examples=10,
                 grid_categories=original_grid_categories,
@@ -1162,42 +1158,20 @@ class DreamingDataGenerator:
                 task_name = 'New mutation task'
             )
             
-            if len(input_grid_examples) < 3:
+            if len(grid_examples) < 5:
                 print("Not enough examples generated from original task, skipping mutation validation.")
                 return False
-        except Exception:
-            try:
-                # Generate examples from mutated task using the same predetermined parameter values
-                mutated_instructions = mutated_task.get('instructions', [])
-                if not mutated_instructions:
-                    print("Mutated task has no instructions, skipping mutation validation.")
-                    return False
-                
-                input_grid_examples = generate_grid_examples(
-                    mutated_instructions,
-                    num_examples=10,
-                    grid_categories=mutated_grid_categories,
-                    strict=False,
-                    parameters=mutated_parameter_tags,
-                    min_grid_dim=mutated_min_grid_dim,
-                    max_grid_dim=mutated_max_grid_dim,
-                    parameter_values=predetermined_param_values,
-                    catch_exceptions=False,
-                    task_name = 'New mutation task'
-                )
-                
-                if len(input_grid_examples) < 3:
-                    print("Not enough examples generated from mutated task, skipping mutation validation.")
-                    return False
-            except Exception:
-                return False
-        
+        except:
+            # If the original task doesn't run successfully, just pass validation and keep mutating.
+            return True
+
         try:
-            # # Test on at least 3 examples
-            num_test_examples = len(input_grid_examples)
+            # Test on the examples
+            num_test_examples = len(grid_examples)
+            all_outputs_same = True
             
             for i in range(num_test_examples):
-                original_example = input_grid_examples[i]
+                original_example = grid_examples[i]
                 
                 # Use the same input grid from original example
                 input_grid = original_example['input']
@@ -1223,39 +1197,25 @@ class DreamingDataGenerator:
                 if mutated_output is None:
                     return False
                 
-                # Check if outputs are the same
-                if self._compare_output_grids(original_output, mutated_output):
-                    print("Mutation validation failed: mutated task produces same outputs as original task.")
-                    return False
+                # Check if outputs are the same for this example
+                if not self._compare_output_grids(original_output, mutated_output):
+                    all_outputs_same = False
             
-            print("Mutation validation passed: mutated task produces different outputs.")
+            if all_outputs_same:
+                if VERBOSE:
+                    print("Mutation validation failed: mutated task produces same outputs as original task for all examples.")
+
+                return False
+            
+            if VERBOSE:
+                print("Mutation validation passed: mutated task produces different outputs.")
             return True
             
         except Exception as e:
             #print(f"Error during mutation validation: {e}")
             return False
     
-    def _compare_two_tasks(self, task_one, other_task, examples, tasks_to_mark_obsolete, idx):
-        '''
-        Returns True if both tasks are the same
-        '''
-        combined_input_grids = [ex['input'] for ex in examples]
-        combined_object_masks = [ex.get('object_mask', []) for ex in examples]
-        combined_example_params = [ex.get('parameters', {}) for ex in examples]  # Store parameters from examples
-        combined_output_grids = [ex['output'] for ex in examples]
-
-        combined_level = task_one.get('curriculum_level', 0)        
-        other_level = other_task.get('curriculum_level', 0)
-        
-        # Only check tasks with curriculum level <= combined task's level
-        if other_level > combined_level:
-            return False
-        
-        # Skip if this is the combined task itself (if it's already in the DB)
-        if other_task.get('name') == task_one.get('name'):
-            return False
-        
-        # Check if other_task requires object masks (has get_objects/get_bg)
+    def _compare_two_object_masks(self, combined_object_masks, other_task):
         other_instructions = other_task.get('instructions', [])
         other_has_get_objects = len(other_instructions) > 0 and len(other_instructions[0]) > 1 and other_instructions[0][1] == 15
         other_has_get_bg = len(other_instructions) > 1 and len(other_instructions[1]) > 1 and other_instructions[1][1] == 16
@@ -1284,6 +1244,32 @@ class DreamingDataGenerator:
             if not has_valid_masks:
                 return False
         
+        return True
+
+    def _compare_two_tasks(self, task_one, other_task, examples, tasks_to_mark_obsolete, idx):
+        '''
+        Returns True if both tasks are the same
+        '''
+        combined_input_grids = [ex['input'] for ex in examples]
+        combined_object_masks = [ex.get('object_mask', []) for ex in examples]
+        combined_example_params = [ex.get('parameters', {}) for ex in examples]  # Store parameters from examples
+        combined_output_grids = [ex['output'] for ex in examples]
+
+        combined_level = task_one.get('curriculum_level', 0)        
+        other_level = other_task.get('curriculum_level', 0)
+        
+        # Only check tasks with curriculum level <= combined task's level
+        if other_level > combined_level:
+            return False
+        
+        # Skip if this is the combined task itself (if it's already in the DB)
+        if other_task.get('name') == task_one.get('name'):
+            return False
+        
+        # Check if other_task requires object masks (has get_objects/get_bg)
+        if not self._compare_two_object_masks(combined_object_masks, other_task):
+            return False
+
         # Apply other task's program to the same input grids
         # Reuse the exact same parameter values that were used to generate the combined task's examples
         other_output_grids = []
@@ -1304,17 +1290,10 @@ class DreamingDataGenerator:
         matches = 0
         for combined_out, other_out in zip(combined_output_grids, other_output_grids):
             if self._compare_output_grids(combined_out, other_out):
-                #print("This is a match!")
                 matches += 1
-            #else:
-            #    print("No match.")
-            
-            #viz.draw_grid_pair(combined_out, other_out)
 
         match_percentage = matches / len(combined_output_grids) if combined_output_grids else 0
         
-        #print(f"match_percentage = {match_percentage}")
-
         # If more than N% match, handle according to program length
         if match_percentage > 0.9:
             # Calculate program length as total number of tokens in instruction sequences
@@ -1324,7 +1303,6 @@ class DreamingDataGenerator:
 
             print(f"==> Redundancy validation failure: combined task {task_one['name']} clashed with {other_task['name']}")
 
-            other_instructions = other_task.get('instructions', [])
             # Calculate program length as total number of tokens in instruction sequences
             other_program_text = other_task.get('program', '')
             other_program_length = len([token for token in other_program_text.split(';') if token.strip() and not token.strip().startswith('del')])
@@ -1338,6 +1316,76 @@ class DreamingDataGenerator:
                 return False
 
         return False
+
+    def _validate_output_grids_distinct(self, combined_output_grids):
+        # Validation: Check that at least 70% of output grids are distinct from each other
+        unique_output_grids = []
+        for output_grid in combined_output_grids:
+            is_unique = True
+            for unique_grid in unique_output_grids:
+                if self._compare_output_grids(output_grid, unique_grid):
+                    is_unique = False
+                    break
+            if is_unique:
+                unique_output_grids.append(output_grid)
+        
+        distinct_percentage = len(unique_output_grids) / len(combined_output_grids) if combined_output_grids else 0
+        if distinct_percentage < 0.7:
+            print(f"==> Output variation validation failure: only {distinct_percentage*100:.1f}% of output grids are distinct (required: 70%)")
+            return False
+
+        return True
+
+    def _validate_outputs_not_trivial(self, combined_output_grids):
+        # Validation: Check that output grids are not all filled with exactly the same pixel color
+        # Group examples into sets of 3 and check each set independently
+        num_sets = len(combined_output_grids) // 3
+        sets_with_uniform_same_color = 0
+        
+        for set_idx in range(num_sets):
+            set_start = set_idx * 3
+            set_output_grids = combined_output_grids[set_start:set_start + 3]
+            
+            # Check if all 3 grids in this set are uniform and have the same color
+            first_grid = set_output_grids[0]
+            first_color = None
+            is_first_uniform = True
+            
+            # Check if first grid is uniform
+            for row in first_grid:
+                for pixel in row:
+                    if first_color is None:
+                        first_color = pixel
+                    elif pixel != first_color:
+                        is_first_uniform = False
+                        break
+                if not is_first_uniform:
+                    break
+            
+            # If first grid is uniform, check if all grids in set have the same uniform color
+            if is_first_uniform:
+                all_same_color = True
+                for output_grid in set_output_grids[1:]:
+                    for row in output_grid:
+                        for pixel in row:
+                            if pixel != first_color:
+                                all_same_color = False
+                                break
+                        if not all_same_color:
+                            break
+                    if not all_same_color:
+                        break
+                
+                if all_same_color:
+                    sets_with_uniform_same_color += 1
+        
+        # Fail if more than 70% of sets have all grids uniform with same color
+        uniform_percentage = sets_with_uniform_same_color / num_sets if num_sets > 0 else 0
+        if uniform_percentage > 0.7:
+            print(f"==> Output validation failure: {uniform_percentage*100:.1f}% of example sets have all grids filled with the same pixel color (threshold: 70%)")
+            return False
+
+        return True
 
     def _validate_generated_task(self, combined_task, task_db):
         """Validate that combined task produces sufficiently different outputs from existing tasks.
@@ -1396,75 +1444,16 @@ class DreamingDataGenerator:
             # Extract input grids and output grids from combined task examples
             combined_output_grids = [ex['output'] for ex in examples]
             
-            # Validation: Check that at least 70% of output grids are distinct from each other
-            unique_output_grids = []
-            for output_grid in combined_output_grids:
-                is_unique = True
-                for unique_grid in unique_output_grids:
-                    if self._compare_output_grids(output_grid, unique_grid):
-                        is_unique = False
-                        break
-                if is_unique:
-                    unique_output_grids.append(output_grid)
-            
-            distinct_percentage = len(unique_output_grids) / len(combined_output_grids) if combined_output_grids else 0
-            if distinct_percentage < 0.7:
-                print(f"==> Output variation validation failure: only {distinct_percentage*100:.1f}% of output grids are distinct (required: 70%)")
+            if not self._validate_output_grids_distinct(combined_output_grids):
                 return False, []
-            
-            # Validation: Check that output grids are not all filled with exactly the same pixel color
-            # Group examples into sets of 3 and check each set independently
-            num_sets = len(combined_output_grids) // 3
-            sets_with_uniform_same_color = 0
-            
-            for set_idx in range(num_sets):
-                set_start = set_idx * 3
-                set_output_grids = combined_output_grids[set_start:set_start + 3]
-                
-                # Check if all 3 grids in this set are uniform and have the same color
-                first_grid = set_output_grids[0]
-                first_color = None
-                is_first_uniform = True
-                
-                # Check if first grid is uniform
-                for row in first_grid:
-                    for pixel in row:
-                        if first_color is None:
-                            first_color = pixel
-                        elif pixel != first_color:
-                            is_first_uniform = False
-                            break
-                    if not is_first_uniform:
-                        break
-                
-                # If first grid is uniform, check if all grids in set have the same uniform color
-                if is_first_uniform:
-                    all_same_color = True
-                    for output_grid in set_output_grids[1:]:
-                        for row in output_grid:
-                            for pixel in row:
-                                if pixel != first_color:
-                                    all_same_color = False
-                                    break
-                            if not all_same_color:
-                                break
-                        if not all_same_color:
-                            break
-                    
-                    if all_same_color:
-                        sets_with_uniform_same_color += 1
-            
-            # Fail if more than 70% of sets have all grids uniform with same color
-            uniform_percentage = sets_with_uniform_same_color / num_sets if num_sets > 0 else 0
-            if uniform_percentage > 0.7:
-                print(f"==> Output validation failure: {uniform_percentage*100:.1f}% of example sets have all grids filled with the same pixel color (threshold: 70%)")
+
+            if not self._validate_outputs_not_trivial(combined_output_grids):
                 return False, []
 
             # Get combined task's curriculum level and program length           
             tasks_to_mark_obsolete = []
             
             # Loop through each other task in task_DB
-            #for idx, other_task in enumerate(tqdm(task_db, desc="Comparing with other tasks")):
             for idx, other_task in enumerate(task_db):
                 is_same = self._compare_two_tasks(combined_task, other_task, examples, tasks_to_mark_obsolete, idx)
                 if is_same:
@@ -2050,6 +2039,137 @@ class DreamingDataGenerator:
         args_str = ", ".join([format_arg(arg) for arg in args])
         return f"{prim_name}({args_str})"
 
+    def _mutation_add(self, instructions, line_idx):
+        # 3. Add operation
+        max_retries = 1000
+        prim_name = None
+        arg_refs = None
+        found_match = False
+        
+        for _ in range(max_retries):
+            prim_name, arg_refs = self._find_compatible_primitive(instructions, line_idx)
+            if prim_name is None:
+                continue
+                        
+        if not found_match or prim_name is None or arg_refs is None:
+            return None, False
+        
+        # Create the new instruction
+        new_instr = self._create_instruction_string(prim_name, arg_refs)
+        
+        # Calculate stack size at insertion point (before new instruction)
+        stack_at_insert = self._count_stack_at_line(instructions, line_idx)
+        new_var_ref = stack_at_insert  # The variable created by the new instruction
+        
+        # Insert the new instruction
+        mutated_instrs = instructions[:line_idx] + [new_instr] + instructions[line_idx:]
+        
+        # Find a random position later in the program to add del statement
+        # Must be after line_idx + 2 (after the new instruction)
+        if len(mutated_instrs) > line_idx + 2:
+            del_line_start = line_idx + 2
+            del_line_end = len(mutated_instrs)
+            del_line_idx = random.randint(del_line_start, del_line_end)
+            
+            # Between the inserted mutation and its corresponding del statement,
+            # all instructions that refer to refIDs that have been created after
+            # the inserted mutation must increment refIDs by 1.
+            # Variables created at positions >= line_idx in the original program
+            # now have indices +1, so we need to increment refIDs >= stack_at_insert
+            # in instructions between line_idx + 1 and del_line_idx
+            for i in range(line_idx + 1, del_line_idx):
+                if i < len(mutated_instrs):
+                    instr = mutated_instrs[i]
+                    
+                    # Update all N+X references that point to variables created after insertion
+                    def update_ref(match):
+                        ref_id = int(match.group(1))
+                        # If this reference points to a variable created at or after insertion, increment it
+                        if ref_id >= stack_at_insert:
+                            return f"N+{ref_id + 1}"
+                        return match.group(0)
+                    
+                    mutated_instrs[i] = re.sub(r'N\+(\d+)', update_ref, instr)
+            
+            # Track how the variable index changes due to del operations
+            # between the insertion point and the del statement insertion point
+            adjusted_var_ref = new_var_ref
+            for i in range(line_idx + 1, del_line_idx):
+                if i < len(mutated_instrs):
+                    instr = mutated_instrs[i].strip()
+                    if instr.startswith('del('):
+                        # Parse the del instruction to get the variable index being deleted
+                        prim_name, args = self._parse_instruction(instr)
+                        if prim_name == 'del' and len(args) > 0:
+                            # Extract variable index from argument (args[0] is var_idx + 10)
+                            deleted_var_idx = args[0] - 10
+                            # If a variable with index < adjusted_var_ref is deleted,
+                            # our variable's index decreases by 1
+                            if deleted_var_idx < adjusted_var_ref:
+                                adjusted_var_ref -= 1
+            
+            # Add del statement (reference the variable created by new instruction)
+            del_instr = f"del(N+{adjusted_var_ref})"
+            mutated_instrs.insert(del_line_idx, del_instr)
+
+        return mutated_instrs
+
+    def _mutation_edit(self, instructions, line_idx):
+
+        # Edit operation: decide a slot to edit
+        current_instr = instructions[line_idx]
+        prim_name, args = self._parse_instruction(current_instr)
+
+        # Decide slot: primitive itself or one of its arguments
+        if len(args) == 0:
+            # No arguments, can only edit the primitive
+            slot_type = 'primitive'
+        else:
+            # Randomly choose: primitive or one of the arguments
+            slot_type = random.choice(['primitive', 'argument'])
+        
+        if slot_type == 'argument':
+            arg_slot_idx = random.randint(0, len(args) - 1)
+
+        stack_size = self._count_stack_at_line(instructions, line_idx)
+        if slot_type == 'primitive':
+            # Replace the primitive with a different non-del one
+            non_del_prims = self._get_non_del_primitives()
+            # Remove current primitive from candidates
+            available_prims = [p for p in non_del_prims if p != prim_name]
+            
+            new_prim_name = random.choice(available_prims)
+            
+            # Get signature for new primitive
+            sig = self._get_primitive_signature(new_prim_name)
+            
+            # Generate new arguments that match the signature types
+            new_args = self._generate_typed_arguments(instructions, line_idx, sig)
+            
+            # Create new instruction
+            new_instr = self._create_instruction_string_from_parts(new_prim_name, new_args)
+            mutated_instrs = instructions[:]
+            mutated_instrs[line_idx] = new_instr
+        
+        else:  # slot_type == 'argument'
+            # Edit a specific argument
+            current_arg = args[arg_slot_idx]
+            
+            # Generate a new value for this argument (simplified, no type checking)
+            new_arg_value = self._generate_new_argument_value(current_arg, stack_size)
+            
+            # Create new args list with the edited argument
+            new_args = args[:]
+            new_args[arg_slot_idx] = new_arg_value
+            
+            # Create new instruction with edited argument
+            new_instr = self._create_instruction_string_from_parts(prim_name, new_args)
+            mutated_instrs = instructions[:]
+            mutated_instrs[line_idx] = new_instr
+
+        return mutated_instrs
+
+
     def apply_mutation(self, task):
         """Apply mutation to a task.
         
@@ -2094,130 +2214,11 @@ class DreamingDataGenerator:
             line_idx = random.randint(0, len(instructions))
 
         if operation == 'add':
-            # 3. Add operation
-            max_retries = 1000
-            prim_name = None
-            arg_refs = None
-            found_match = False
-            
-            for _ in range(max_retries):
-                prim_name, arg_refs = self._find_compatible_primitive(instructions, line_idx)
-                if prim_name is None:
-                    continue
-                            
-            if not found_match or prim_name is None or arg_refs is None:
-                return None, False
-            
-            # Create the new instruction
-            new_instr = self._create_instruction_string(prim_name, arg_refs)
-            
-            # Calculate stack size at insertion point (before new instruction)
-            stack_at_insert = self._count_stack_at_line(instructions, line_idx)
-            new_var_ref = stack_at_insert  # The variable created by the new instruction
-            
-            # Insert the new instruction
-            mutated_instrs = instructions[:line_idx] + [new_instr] + instructions[line_idx:]
-            
-            # Find a random position later in the program to add del statement
-            # Must be after line_idx + 2 (after the new instruction)
-            if len(mutated_instrs) > line_idx + 2:
-                del_line_start = line_idx + 2
-                del_line_end = len(mutated_instrs)
-                del_line_idx = random.randint(del_line_start, del_line_end)
-                
-                # Between the inserted mutation and its corresponding del statement,
-                # all instructions that refer to refIDs that have been created after
-                # the inserted mutation must increment refIDs by 1.
-                # Variables created at positions >= line_idx in the original program
-                # now have indices +1, so we need to increment refIDs >= stack_at_insert
-                # in instructions between line_idx + 1 and del_line_idx
-                for i in range(line_idx + 1, del_line_idx):
-                    if i < len(mutated_instrs):
-                        instr = mutated_instrs[i]
-                        
-                        # Update all N+X references that point to variables created after insertion
-                        def update_ref(match):
-                            ref_id = int(match.group(1))
-                            # If this reference points to a variable created at or after insertion, increment it
-                            if ref_id >= stack_at_insert:
-                                return f"N+{ref_id + 1}"
-                            return match.group(0)
-                        
-                        mutated_instrs[i] = re.sub(r'N\+(\d+)', update_ref, instr)
-                
-                # Track how the variable index changes due to del operations
-                # between the insertion point and the del statement insertion point
-                adjusted_var_ref = new_var_ref
-                for i in range(line_idx + 1, del_line_idx):
-                    if i < len(mutated_instrs):
-                        instr = mutated_instrs[i].strip()
-                        if instr.startswith('del('):
-                            # Parse the del instruction to get the variable index being deleted
-                            prim_name, args = self._parse_instruction(instr)
-                            if prim_name == 'del' and len(args) > 0:
-                                # Extract variable index from argument (args[0] is var_idx + 10)
-                                deleted_var_idx = args[0] - 10
-                                # If a variable with index < adjusted_var_ref is deleted,
-                                # our variable's index decreases by 1
-                                if deleted_var_idx < adjusted_var_ref:
-                                    adjusted_var_ref -= 1
-                
-                # Add del statement (reference the variable created by new instruction)
-                del_instr = f"del(N+{adjusted_var_ref})"
-                mutated_instrs.insert(del_line_idx, del_instr)
-        
+            mutated_instrs = self._mutation_add(instructions, line_idx)
+
         elif operation == 'edit':
-            # Edit operation: decide a slot to edit
-            current_instr = instructions[line_idx]
-            prim_name, args = self._parse_instruction(current_instr)
+            mutated_instrs = self._mutation_edit(instructions, line_idx)
 
-            # Decide slot: primitive itself or one of its arguments
-            if len(args) == 0:
-                # No arguments, can only edit the primitive
-                slot_type = 'primitive'
-            else:
-                # Randomly choose: primitive or one of the arguments
-                slot_type = random.choice(['primitive', 'argument'])
-            
-            if slot_type == 'argument':
-                arg_slot_idx = random.randint(0, len(args) - 1)
-
-            stack_size = self._count_stack_at_line(instructions, line_idx)
-            if slot_type == 'primitive':
-                # Replace the primitive with a different non-del one
-                non_del_prims = self._get_non_del_primitives()
-                # Remove current primitive from candidates
-                available_prims = [p for p in non_del_prims if p != prim_name]
-                
-                new_prim_name = random.choice(available_prims)
-                
-                # Get signature for new primitive
-                sig = self._get_primitive_signature(new_prim_name)
-                
-                # Generate new arguments that match the signature types
-                new_args = self._generate_typed_arguments(instructions, line_idx, sig)
-                
-                # Create new instruction
-                new_instr = self._create_instruction_string_from_parts(new_prim_name, new_args)
-                mutated_instrs = instructions[:]
-                mutated_instrs[line_idx] = new_instr
-            
-            else:  # slot_type == 'argument'
-                # Edit a specific argument
-                current_arg = args[arg_slot_idx]
-                
-                # Generate a new value for this argument (simplified, no type checking)
-                new_arg_value = self._generate_new_argument_value(current_arg, stack_size)
-                
-                # Create new args list with the edited argument
-                new_args = args[:]
-                new_args[arg_slot_idx] = new_arg_value
-                
-                # Create new instruction with edited argument
-                new_instr = self._create_instruction_string_from_parts(prim_name, new_args)
-                mutated_instrs = instructions[:]
-                mutated_instrs[line_idx] = new_instr
-        
         # Reconstruct program string
         mutated_prog = program_lines_to_block_of_text(mutated_instrs)
 
@@ -2253,14 +2254,145 @@ class DreamingDataGenerator:
         return mutated_task, True
 
 
+    def apply_and_validate_composition(self, task, task_two, return_only):
+        if VERBOSE:
+            print("\tApplying composition")
+
+        original_task = copy.deepcopy.copy(task)
+        new_task, is_valid = self.apply_composition(task, task_two)
+
+        if new_task is None:
+            is_valid = False
+
+        if is_valid:
+            # Validate the combined task against existing tasks
+            # Load full task_DB for validation
+            task_db_path = Path("task_DB.json")
+            try:
+                with open(task_db_path, "r") as f:
+                    full_task_db = json.load(f)
+            except Exception:
+                full_task_db = []
+
+            # Run validation
+            is_valid, tasks_to_mark_obsolete = self._validate_generated_task(new_task, full_task_db)
+
+            if is_valid:
+                if VERBOSE:
+                    print("\tValidation succeeded!")
+                if return_only:
+                    return new_task
+
+                self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)                    
+
+                return new_task
+            else:
+                if VERBOSE:
+                    print("\tValidation failed in validate_generated_task")
+        else:
+            if VERBOSE:
+                print("\tapply_composition failed.")
+
+            if new_task is None:
+                new_task = original_task     # In the case of complete failure, revert to previous task
+
+        return new_task, is_valid
+
+    def apply_and_validate_crossover(self, task, task_two, return_only):
+        if VERBOSE:
+            print("\tApplying crossover")
+
+        original_task = copy.deepcopy.copy(task)            
+        new_task, is_valid = self.apply_crossover(task, task_two)
+
+        if new_task is None:
+            is_valid = False
+
+        if is_valid and new_task is not None:
+            # Validate the combined task against existing tasks
+            # Load full task_DB for validation
+            task_db_path = Path("task_DB.json")
+            try:
+                with open(task_db_path, "r") as f:
+                    full_task_db = json.load(f)
+            except Exception:
+                full_task_db = []
+
+            # Run validation
+            is_valid, tasks_to_mark_obsolete = self._validate_generated_task(new_task, full_task_db)
+
+            if is_valid:
+                if VERBOSE:
+                    print("\tValidation succeeded!")
+                if return_only:
+                    return new_task
+
+                self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)
+
+                return new_task
+            else:
+                if VERBOSE:
+                    print("\tValidation failed in validate_generated_task")
+        else:
+            if VERBOSE:
+                print("\tapply_crossover failed.")
+            if new_task is None:
+                new_task = original_task     # In the case of complete failure, revert to previous task
+
+        return new_task, is_valid
+
+    def apply_and_validate_mutation(self, task, return_only):
+        if VERBOSE:
+            print("\tApplying mutation")
+
+        original_task = copy.deepcopy.copy(task)
+        new_task, is_valid = self.apply_mutation(task)
+
+        if new_task is None:
+            is_valid = False
+        
+        if is_valid and new_task is not None:
+            # First validate that mutated task produces different outputs than original task
+            is_valid = self._validate_mutation_produces_different_outputs(task, new_task)
+
+            if is_valid:                    
+                # Validate the combined task against existing tasks
+                # Load full task_DB for validation
+                task_db_path = Path("task_DB.json")
+                try:
+                    with open(task_db_path, "r") as f:
+                        full_task_db = json.load(f)
+                except Exception:
+                    full_task_db = []
+
+                # Run validation
+                is_valid, tasks_to_mark_obsolete = self._validate_generated_task(new_task, full_task_db)
+
+                if is_valid:
+                    if VERBOSE:
+                        print("\tValidation succeeded!")
+                    if return_only:
+                        return new_task
+
+                    self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)
+
+                    return new_task
+                else:
+                    if VERBOSE:
+                        print("\tValidation failed in validate_generated_task")
+            else:
+                if VERBOSE:
+                    print("==> Mutated task generates the same outputs.")
+        else:
+            if new_task is None:
+                new_task = original_task     # In the case of complete failure, revert to previous task
+
     def dream_iteration(self, probs, max_step_count, return_only):
         
         multi_step_counter = max_step_count
         
         task = self.pick_one_task()
         task_two = self.pick_one_task(other_than=task)
-
-        original_task = copy.deepcopy(task)
 
         print(f"Attempting to generate new task from {task['name']} and {task_two['name']}...")
 
@@ -2272,128 +2404,15 @@ class DreamingDataGenerator:
                 print(f"Attempt #{(max_step_count - multi_step_counter) + 1}...")
 
             if a < probs[0] and not already_composed:
-                if VERBOSE:
-                    print("\tApplying composition")
-
-                new_task, is_valid = self.apply_composition(task, task_two)
-
-                already_composed = True
-                if new_task is None:
-                    is_valid = False
-
+                new_task, is_valid = self.apply_and_validate_composition(task, task_two, return_only)
                 if is_valid:
-                    # Validate the combined task against existing tasks
-                    # Load full task_DB for validation
-                    task_db_path = Path("task_DB.json")
-                    try:
-                        with open(task_db_path, "r") as f:
-                            full_task_db = json.load(f)
-                    except Exception:
-                        full_task_db = []
-
-                    # Run validation
-                    is_valid, tasks_to_mark_obsolete = self._validate_generated_task(new_task, full_task_db)
-
-                    if is_valid:
-                        if VERBOSE:
-                            print("\tValidation succeeded!")
-                        if return_only:
-                            return new_task
-
-                        self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)                    
-
-                        return new_task
-                    else:
-                        if VERBOSE:
-                            print("\tValidation failed in validate_generated_task")
-                else:
-                    if VERBOSE:
-                        print("\tapply_composition failed.")
-                    if new_task is None:
-                        new_task = task     # In the case of complete failure, revert to previous task
+                    already_composed = True
 
             elif a < probs[1]:
-                if VERBOSE:
-                    print("\tApplying crossover")
-                new_task, is_valid = self.apply_crossover(task, task_two)
-
-                if new_task is None:
-                    is_valid = False
-
-                if is_valid and new_task is not None:
-                    # Validate the combined task against existing tasks
-                    # Load full task_DB for validation
-                    task_db_path = Path("task_DB.json")
-                    try:
-                        with open(task_db_path, "r") as f:
-                            full_task_db = json.load(f)
-                    except Exception:
-                        full_task_db = []
-
-                    # Run validation
-                    is_valid, tasks_to_mark_obsolete = self._validate_generated_task(new_task, full_task_db)
-
-                    if is_valid:
-                        if VERBOSE:
-                            print("\tValidation succeeded!")
-                        if return_only:
-                            return new_task
-
-                        self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)
-
-                        return new_task
-                    else:
-                        if VERBOSE:
-                            print("\tValidation failed in validate_generated_task")
-                else:
-                    if VERBOSE:
-                        print("\tapply_crossover failed.")
-                    if new_task is None:
-                        new_task = task     # In the case of complete failure, revert to previous task
+                new_task, is_valid = self.apply_and_validate_crossover(task, task_two, return_only)
 
             else:
-                if VERBOSE:
-                    print("\tApplying mutation")
-                new_task, is_valid = self.apply_mutation(task)
-
-                if new_task is None:
-                    is_valid = False
-                
-                if is_valid and new_task is not None:
-                    # First validate that mutated task produces different outputs than original task
-                    is_valid = self._validate_mutation_produces_different_outputs(original_task, new_task)
-
-                    if is_valid:                    
-                        # Validate the combined task against existing tasks
-                        # Load full task_DB for validation
-                        task_db_path = Path("task_DB.json")
-                        try:
-                            with open(task_db_path, "r") as f:
-                                full_task_db = json.load(f)
-                        except Exception:
-                            full_task_db = []
-
-                        # Run validation
-                        is_valid, tasks_to_mark_obsolete = self._validate_generated_task(new_task, full_task_db)
-
-                        if is_valid:
-                            if VERBOSE:
-                                print("\tValidation succeeded!")
-                            if return_only:
-                                return new_task
-
-                            self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)
-
-                            return new_task
-                        else:
-                            if VERBOSE:
-                                print("\tValidation failed in validate_generated_task")
-                    else:
-                        if VERBOSE:
-                            print("==> Mutated task generates the same outputs.")
-                else:
-                    if new_task is None:
-                        new_task = task     # In the case of complete failure, revert to previous task
+                new_task, is_valid = self.apply_and_validate_mutation(task, return_only)
 
             task = new_task
             multi_step_counter -= 1
