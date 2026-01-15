@@ -22,6 +22,8 @@ from dreaming.utils import DreamingUtils
 
 VERBOSE = False
 
+# ============================================================================ Public methods ===============================================================================
+
 def block_of_text_to_program_lines(program_str):
     """Take a block of text from a task DB program description and convert it into a list of
     user format instruction strings.
@@ -69,63 +71,236 @@ def program_lines_to_block_of_text(instruction_strings):
     formatted += "]"
     return formatted
 
-def format_json_with_compact_integer_lists(obj, indent=2, current_indent=0):
-    """Recursively format JSON with integer lists on a single line."""
-    indent_str = ' ' * current_indent
-    next_indent_str = ' ' * (current_indent + indent)
-    
-    if isinstance(obj, dict):
-        if not obj:
-            return '{}'
-        items = []
-        for key, value in obj.items():
-            formatted_value = format_json_with_compact_integer_lists(value, indent, current_indent + indent)
-            items.append(f'{next_indent_str}"{key}": {formatted_value}')
-        return '{\n' + ',\n'.join(items) + '\n' + indent_str + '}'
-    
-    elif isinstance(obj, list):
-        if not obj:
-            return '[]'
-        
-        # Check if this is an integer list (all elements are numbers, not bool)
-        is_integer_list = all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in obj)
-        
-        if is_integer_list:
-            # Format on single line
-            return '[' + ', '.join(str(x) for x in obj) + ']'
-        
-        # Check if this is a list of integer lists
-        is_list_of_integer_lists = all(
-            isinstance(x, list) and len(x) > 0 and 
-            all(isinstance(y, (int, float)) and not isinstance(y, bool) for y in x)
-            for x in obj
-        )
-        
-        if is_list_of_integer_lists:
-            # Format each nested list on a single line, but keep outer list multi-line
-            items = []
-            for item in obj:
-                formatted_item = '[' + ', '.join(str(x) for x in item) + ']'
-                items.append(f'{next_indent_str}{formatted_item}')
-            return '[\n' + ',\n'.join(items) + '\n' + indent_str + ']'
-        
-        # Regular list formatting
-        items = []
-        for item in obj:
-            formatted_item = format_json_with_compact_integer_lists(item, indent, current_indent + indent)
-            items.append(f'{next_indent_str}{formatted_item}')
-        return '[\n' + ',\n'.join(items) + '\n' + indent_str + ']'
-    
-    else:
-        # Primitive types
-        return json.dumps(obj)
-
-
 
 class DreamingDataGenerator:
 
     def __init__(self):
         self._task_db_cache = None
+
+    def dream(self, N, probs=[0.05, 0.4], max_step_count=20, return_only=False):
+        """Generate new tasks in the task_DB by combining two existing tasks."""
+
+        new_tasks = []
+
+        if not hasattr(self, 'task_DB') or not self.task_DB:
+            self.task_DB = self.sample_task_DB()
+
+        for task_num in range(N):
+            print(f"==> Generating task #{task_num+1}")
+            valid = False
+            while not valid:
+                new_task = self.dream_iteration(probs, max_step_count, return_only)
+
+                if new_task is None:
+                    continue
+                else:
+                    valid = True
+                    new_tasks.append(new_task)
+            
+            print(f"==> Successfully generateda a new task: {new_task['name']}")
+            print(f"==> Corresponding program: {new_task['program']}")
+
+        return new_tasks
+
+    def generate(self, N, basename, curriculum_lvl_arg=None, mixed_mode=False):
+        """Generate N task examples and save to JSON file.
+        
+        Args:
+            N: Number of task examples to generate for each curriculum level (or overall if mixed_mode=True)
+            basename: Output JSON basename (_<curriculum level>.json gets appended to it, or .json if mixed_mode=True)
+            curriculum_lvl_arg: Optional curriculum level to generate. If None, generates all levels.
+            mixed_mode: If True, generates N examples overall from all tasks regardless of curriculum level.
+        """
+        if mixed_mode:
+            # Generate N examples overall from all tasks, ignoring curriculum levels
+            print(f"==> Generating {N} examples in mixed mode (all curriculum levels)")
+            tasks = self.sample_task_DB()
+            
+            if len(tasks) == 0:
+                print("No tasks found in task_DB")
+                return
+            
+            samples = self.generate_samples(tasks, N)
+            
+            # Save to JSON file with integer lists on single lines
+            current_filename = f'{basename}.json'
+            with open(current_filename, 'w') as f:
+                formatted_json = format_json_with_compact_integer_lists(samples, indent=2)
+                f.write(formatted_json)
+            
+            print(f"Successfully generated {len(samples)} task examples and saved to {current_filename}")
+            return
+        
+        curriculum_lvl = 0
+        if curriculum_lvl_arg is not None:
+            curriculum_lvl = curriculum_lvl_arg
+
+        while True:
+            print(f"==> Generating data for curriculum level {curriculum_lvl}")
+            tasks = self.sample_task_DB(curriculum_lvl)
+
+            if len(tasks) == 0:
+                return
+
+            samples = self.generate_samples(tasks, N)
+            
+            # Save to JSON file with integer lists on single lines
+            current_filename = f'{basename}_{curriculum_lvl}.json'
+            with open(current_filename, 'w') as f:
+                formatted_json = format_json_with_compact_integer_lists(samples, indent=2)
+                f.write(formatted_json)
+            
+            print(f"Successfully generated {len(samples)} task examples and saved to {current_filename}")
+
+            if curriculum_lvl_arg is not None:
+                break
+            
+            curriculum_lvl += 1
+
+    def generate_incremental(self, N, basename, task_list):
+        """Generate N task examples overall, split uniformly among tasks in task_list, and append to JSON file.
+        
+        Args:
+            N: Total number of task examples to generate overall
+            basename: Output JSON basename (e.g., 'training' -> 'training.json')
+            task_list: List of task names to generate samples for
+        """
+        if not task_list:
+            print("==> task_list is empty, nothing to generate")
+            return
+        
+        # Load task_DB
+        all_tasks = self.sample_task_DB()
+        
+        # Create a mapping from task name to task dict
+        task_dict = {}
+        for task in all_tasks:
+            task_name = task.get('name', '')
+            if task_name:
+                task_dict[task_name] = task
+        
+        # Filter task_list to only include tasks that exist in task_DB
+        valid_tasks = []
+        for task_name in task_list:
+            if task_name in task_dict:
+                valid_tasks.append(task_dict[task_name])
+            else:
+                print(f"==> Warning: Task '{task_name}' not found in task_DB, skipping...")
+        
+        if not valid_tasks:
+            print("==> No valid tasks found in task_DB, nothing to generate")
+            return
+        
+        # Calculate samples per task (split uniformly)
+        samples_per_task = N // len(valid_tasks)
+        remainder = N % len(valid_tasks)
+        
+        # Generate samples for each task
+        all_samples = []
+        for i, task in enumerate(valid_tasks):
+            # Distribute remainder samples to first few tasks
+            num_samples = samples_per_task + (1 if i < remainder else 0)
+            
+            if num_samples == 0:
+                continue
+            
+            print(f"==> Generating {num_samples} samples for task '{task.get('name', '')}'")
+            
+            # Generate samples for this specific task
+            task_samples = []
+            for _ in tqdm(range(num_samples), desc=f"Generating for {task.get('name', '')}"):
+                # Get task properties
+                instructions = task.get('instructions', [])
+                if not instructions:
+                    print(f"Warning: Task '{task.get('name', '')}' has no instructions, skipping...")
+                    continue
+                
+                grid_categories = task.get('grid_categories', ['basic'])
+                if not isinstance(grid_categories, list):
+                    grid_categories = ['basic']
+                
+                parameter_tags = []
+                task_params = task.get('parameters') or task.get('parameter')
+                if isinstance(task_params, list):
+                    parameter_tags = list(task_params)
+                
+                min_grid_dim = task.get('min_grid_dim')
+                max_grid_dim = task.get('max_grid_dim')
+                
+                # Generate 3 input-output examples for this task
+                valid = False
+                while not valid:
+                    try:
+                        examples = generate_grid_examples(
+                            instructions, 
+                            num_examples=3, 
+                            grid_categories=grid_categories,
+                            strict=False,
+                            parameters=parameter_tags,
+                            min_grid_dim=min_grid_dim,
+                            max_grid_dim=max_grid_dim
+                        )
+                        
+                        if len(examples) < 3:
+                            continue
+                        
+                        examples = examples[:3]
+                        
+                        # Remove 'parameters' field and ensure 'object_mask' is present
+                        for example in examples:
+                            if 'parameters' in example:
+                                del example['parameters']
+                            if 'object_mask' not in example:
+                                example['object_mask'] = []
+                        
+                        # Create entry in the same format as validation.json
+                        entry = {
+                            'train': examples,
+                            'test': [],
+                            'prog': instructions,
+                            'name': task.get('name', '')
+                        }
+                        
+                        task_samples.append(entry)
+                        valid = True
+                        
+                    except Exception as e:
+                        continue
+            
+            all_samples.extend(task_samples)
+        
+        if not all_samples:
+            print("==> No samples were generated")
+            return
+        
+        # Load existing JSON file if it exists and append new samples
+        filename = f'{basename}.json'
+        existing_samples = []
+        try:
+            with open(filename, 'r') as f:
+                existing_samples = json.load(f)
+                if not isinstance(existing_samples, list):
+                    existing_samples = []
+        except FileNotFoundError:
+            existing_samples = []
+        except json.JSONDecodeError:
+            print(f"==> Warning: {filename} exists but is not valid JSON, will overwrite")
+            existing_samples = []
+        
+        # Append new samples to existing ones
+        combined_samples = existing_samples + all_samples
+        
+        # Write back to file (preserving existing data + new data)
+        with open(filename, 'r+') as f:
+            formatted_json = format_json_with_compact_integer_lists(combined_samples, indent=2)
+            f.seek(0)
+            f.write(formatted_json)
+            f.truncate()
+        
+        print(f"Successfully generated {len(all_samples)} new task examples and appended to {filename} (total: {len(combined_samples)})")
+
+# =========================================================================== Private methods ==============================================================================
+
 
     def sample_task_DB(self, curriculum_lvl=None):
         # Load task_DB.json (cached - only load once, reuse across curriculum levels)
@@ -950,7 +1125,7 @@ class DreamingDataGenerator:
             
             if param_values:
                 instructions_to_execute = replace_parameter_placeholders(
-                    instructions_to_execute, parameter_tags, param_values
+                    instructions_to_execute, param_values
                 )
 
     def _apply_task_to_input_grid(self, task, input_grid, object_mask=None, example_params=None, attempt=0):
@@ -2417,225 +2592,54 @@ class DreamingDataGenerator:
             task = new_task
             multi_step_counter -= 1
 
+def format_json_with_compact_integer_lists(obj, indent=2, current_indent=0):
+    """Recursively format JSON with integer lists on a single line."""
+    indent_str = ' ' * current_indent
+    next_indent_str = ' ' * (current_indent + indent)
+    
+    if isinstance(obj, dict):
+        if not obj:
+            return '{}'
+        items = []
+        for key, value in obj.items():
+            formatted_value = format_json_with_compact_integer_lists(value, indent, current_indent + indent)
+            items.append(f'{next_indent_str}"{key}": {formatted_value}')
+        return '{\n' + ',\n'.join(items) + '\n' + indent_str + '}'
+    
+    elif isinstance(obj, list):
+        if not obj:
+            return '[]'
+        
+        # Check if this is an integer list (all elements are numbers, not bool)
+        is_integer_list = all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in obj)
+        
+        if is_integer_list:
+            # Format on single line
+            return '[' + ', '.join(str(x) for x in obj) + ']'
+        
+        # Check if this is a list of integer lists
+        is_list_of_integer_lists = all(
+            isinstance(x, list) and len(x) > 0 and 
+            all(isinstance(y, (int, float)) and not isinstance(y, bool) for y in x)
+            for x in obj
+        )
+        
+        if is_list_of_integer_lists:
+            # Format each nested list on a single line, but keep outer list multi-line
+            items = []
+            for item in obj:
+                formatted_item = '[' + ', '.join(str(x) for x in item) + ']'
+                items.append(f'{next_indent_str}{formatted_item}')
+            return '[\n' + ',\n'.join(items) + '\n' + indent_str + ']'
+        
+        # Regular list formatting
+        items = []
+        for item in obj:
+            formatted_item = format_json_with_compact_integer_lists(item, indent, current_indent + indent)
+            items.append(f'{next_indent_str}{formatted_item}')
+        return '[\n' + ',\n'.join(items) + '\n' + indent_str + ']'
+    
+    else:
+        # Primitive types
+        return json.dumps(obj)
 
-    def dream(self, N, probs=[0.05, 0.4], max_step_count=20, return_only=False):
-        """Generate new tasks in the task_DB by combining two existing tasks."""
-
-        new_tasks = []
-
-        if not hasattr(self, 'task_DB') or not self.task_DB:
-            self.task_DB = self.sample_task_DB()
-
-        for task_num in range(N):
-            print(f"==> Generating task #{task_num+1}")
-            valid = False
-            while not valid:
-                new_task = self.dream_iteration(probs, max_step_count, return_only)
-
-                if new_task is None:
-                    continue
-                else:
-                    valid = True
-                    new_tasks.append(new_task)
-            
-            print(f"==> Successfully generateda a new task: {new_task['name']}")
-            print(f"==> Corresponding program: {new_task['program']}")
-
-        return new_tasks
-
-    def generate(self, N, basename, curriculum_lvl_arg=None, mixed_mode=False):
-        """Generate N task examples and save to JSON file.
-        
-        Args:
-            N: Number of task examples to generate for each curriculum level (or overall if mixed_mode=True)
-            basename: Output JSON basename (_<curriculum level>.json gets appended to it, or .json if mixed_mode=True)
-            curriculum_lvl_arg: Optional curriculum level to generate. If None, generates all levels.
-            mixed_mode: If True, generates N examples overall from all tasks regardless of curriculum level.
-        """
-        if mixed_mode:
-            # Generate N examples overall from all tasks, ignoring curriculum levels
-            print(f"==> Generating {N} examples in mixed mode (all curriculum levels)")
-            tasks = self.sample_task_DB()
-            
-            if len(tasks) == 0:
-                print("No tasks found in task_DB")
-                return
-            
-            samples = self.generate_samples(tasks, N)
-            
-            # Save to JSON file with integer lists on single lines
-            current_filename = f'{basename}.json'
-            with open(current_filename, 'w') as f:
-                formatted_json = format_json_with_compact_integer_lists(samples, indent=2)
-                f.write(formatted_json)
-            
-            print(f"Successfully generated {len(samples)} task examples and saved to {current_filename}")
-            return
-        
-        curriculum_lvl = 0
-        if curriculum_lvl_arg is not None:
-            curriculum_lvl = curriculum_lvl_arg
-
-        while True:
-            print(f"==> Generating data for curriculum level {curriculum_lvl}")
-            tasks = self.sample_task_DB(curriculum_lvl)
-
-            if len(tasks) == 0:
-                return
-
-            samples = self.generate_samples(tasks, N)
-            
-            # Save to JSON file with integer lists on single lines
-            current_filename = f'{basename}_{curriculum_lvl}.json'
-            with open(current_filename, 'w') as f:
-                formatted_json = format_json_with_compact_integer_lists(samples, indent=2)
-                f.write(formatted_json)
-            
-            print(f"Successfully generated {len(samples)} task examples and saved to {current_filename}")
-
-            if curriculum_lvl_arg is not None:
-                break
-            
-            curriculum_lvl += 1
-
-    def generate_incremental(self, N, basename, task_list):
-        """Generate N task examples overall, split uniformly among tasks in task_list, and append to JSON file.
-        
-        Args:
-            N: Total number of task examples to generate overall
-            basename: Output JSON basename (e.g., 'training' -> 'training.json')
-            task_list: List of task names to generate samples for
-        """
-        if not task_list:
-            print("==> task_list is empty, nothing to generate")
-            return
-        
-        # Load task_DB
-        all_tasks = self.sample_task_DB()
-        
-        # Create a mapping from task name to task dict
-        task_dict = {}
-        for task in all_tasks:
-            task_name = task.get('name', '')
-            if task_name:
-                task_dict[task_name] = task
-        
-        # Filter task_list to only include tasks that exist in task_DB
-        valid_tasks = []
-        for task_name in task_list:
-            if task_name in task_dict:
-                valid_tasks.append(task_dict[task_name])
-            else:
-                print(f"==> Warning: Task '{task_name}' not found in task_DB, skipping...")
-        
-        if not valid_tasks:
-            print("==> No valid tasks found in task_DB, nothing to generate")
-            return
-        
-        # Calculate samples per task (split uniformly)
-        samples_per_task = N // len(valid_tasks)
-        remainder = N % len(valid_tasks)
-        
-        # Generate samples for each task
-        all_samples = []
-        for i, task in enumerate(valid_tasks):
-            # Distribute remainder samples to first few tasks
-            num_samples = samples_per_task + (1 if i < remainder else 0)
-            
-            if num_samples == 0:
-                continue
-            
-            print(f"==> Generating {num_samples} samples for task '{task.get('name', '')}'")
-            
-            # Generate samples for this specific task
-            task_samples = []
-            for _ in tqdm(range(num_samples), desc=f"Generating for {task.get('name', '')}"):
-                # Get task properties
-                instructions = task.get('instructions', [])
-                if not instructions:
-                    print(f"Warning: Task '{task.get('name', '')}' has no instructions, skipping...")
-                    continue
-                
-                grid_categories = task.get('grid_categories', ['basic'])
-                if not isinstance(grid_categories, list):
-                    grid_categories = ['basic']
-                
-                parameter_tags = []
-                task_params = task.get('parameters') or task.get('parameter')
-                if isinstance(task_params, list):
-                    parameter_tags = list(task_params)
-                
-                min_grid_dim = task.get('min_grid_dim')
-                max_grid_dim = task.get('max_grid_dim')
-                
-                # Generate 3 input-output examples for this task
-                valid = False
-                while not valid:
-                    try:
-                        examples = generate_grid_examples(
-                            instructions, 
-                            num_examples=3, 
-                            grid_categories=grid_categories,
-                            strict=False,
-                            parameters=parameter_tags,
-                            min_grid_dim=min_grid_dim,
-                            max_grid_dim=max_grid_dim
-                        )
-                        
-                        if len(examples) < 3:
-                            continue
-                        
-                        examples = examples[:3]
-                        
-                        # Remove 'parameters' field and ensure 'object_mask' is present
-                        for example in examples:
-                            if 'parameters' in example:
-                                del example['parameters']
-                            if 'object_mask' not in example:
-                                example['object_mask'] = []
-                        
-                        # Create entry in the same format as validation.json
-                        entry = {
-                            'train': examples,
-                            'test': [],
-                            'prog': instructions,
-                            'name': task.get('name', '')
-                        }
-                        
-                        task_samples.append(entry)
-                        valid = True
-                        
-                    except Exception as e:
-                        continue
-            
-            all_samples.extend(task_samples)
-        
-        if not all_samples:
-            print("==> No samples were generated")
-            return
-        
-        # Load existing JSON file if it exists and append new samples
-        filename = f'{basename}.json'
-        existing_samples = []
-        try:
-            with open(filename, 'r') as f:
-                existing_samples = json.load(f)
-                if not isinstance(existing_samples, list):
-                    existing_samples = []
-        except FileNotFoundError:
-            existing_samples = []
-        except json.JSONDecodeError:
-            print(f"==> Warning: {filename} exists but is not valid JSON, will overwrite")
-            existing_samples = []
-        
-        # Append new samples to existing ones
-        combined_samples = existing_samples + all_samples
-        
-        # Write back to file (preserving existing data + new data)
-        with open(filename, 'r+') as f:
-            formatted_json = format_json_with_compact_integer_lists(combined_samples, indent=2)
-            f.seek(0)
-            f.write(formatted_json)
-            f.truncate()
-        
-        print(f"Successfully generated {len(all_samples)} new task examples and appended to {filename} (total: {len(combined_samples)})")

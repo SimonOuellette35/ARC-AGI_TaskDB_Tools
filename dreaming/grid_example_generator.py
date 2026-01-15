@@ -15,62 +15,126 @@ import AmotizedDSL.DSL as DSL
 import AmotizedDSL.program_interpreter as pi
 from AmotizedDSL.prog_utils import ProgUtils
 
+# ============================================================================ Public method ===============================================================================
 
-def convert_numpy_types(obj):
-    """Recursively convert NumPy types to native Python types for JSON serialization.
+def generate_grid_examples(instructions, num_examples=3, grid_categories=None, strict=True, parameters=None, min_grid_dim=None, max_grid_dim=None, 
+                           parameter_values=None, catch_exceptions=True, task_name=None):
+    """Generate input-output grid examples using the instructions.
     
     Args:
-        obj: Object that may contain NumPy types (int64, float64, etc.)
+        instructions: The program instructions to execute (list of instruction sequences)
+        num_examples: Number of examples to generate
+        grid_categories: List of grid categories. If ['basic'] or None, uses sampler.sample().
+                         Otherwise, uses sampler.sample_by_category() with the categories.
+        strict: If True, raises ValueError if fewer than num_examples are generated.
+                If False, returns whatever examples were generated (with a warning printed).
+        parameters: Optional list of tags, one per parameter index. Each tag applies to the parameter
+                   at the corresponding index (param1 = index 0, param2 = index 1, etc.).
+                   Tags can be: 'bg_color', 'fg_color', 'color', 'margin', 'existing_color', or empty string.
+                   For backward compatibility, also accepts dict format with 'bg_color' or 'fg_color' keys.
+                   If 'bg_color' tag is present, bg_color will be randomly selected for each example
+                   (50% chance of 0, 50% chance of 1-9) and used for grid generation.
+                   If 'fg_color' tag is present, bg_color will be selected the same way for grid generation,
+                   but param placeholders with 'fg_color' tag will be replaced with a random color (0-9) excluding bg_color.
+                   If 'existing_color' tag is present, param placeholders will be replaced with a color that
+                   exists in the input grid (randomly sampled from unique pixel values in the grid).
+                   All color-related parameters ('color', 'fg_color', 'existing_color') are mutually exclusive:
+                   no color value will be reused across different parameters of these types.
+        min_grid_dim: Minimum grid dimension for sample_by_category calls. If None, not passed.
+        max_grid_dim: Maximum grid dimension for sample_by_category calls. If None, not passed.
+        parameter_values: Optional dict mapping parameter indices (0-based) or param names (e.g., 'param1')
+                         to their actual values. If provided, these values will be used instead of
+                         auto-generated values. Keys can be integers (0-based index) or strings like 'param1'.
+                         If a parameter is not in this dict, it will be auto-generated as usual.
     
     Returns:
-        Object with all NumPy types converted to Python native types
+        List of dictionaries with 'input' and 'output' keys, each containing a 2D list of integers
+        representing the grid cells.
+    
+    Raises:
+        ValueError: If strict=True and fewer than num_examples are generated
     """
-    if isinstance(obj, np.integer):
-        return int(obj)
-    elif isinstance(obj, np.floating):
-        return float(obj)
-    elif isinstance(obj, np.ndarray):
-        return obj.tolist()
-    elif isinstance(obj, dict):
-        return {key: convert_numpy_types(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_numpy_types(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return tuple(convert_numpy_types(item) for item in obj)
-    else:
-        return obj
+    if grid_categories is None:
+        grid_categories = ['basic']
+
+    examples = []
+    max_attempts = num_examples * 10  # Try up to 10x the number of examples needed
+
+    attempts = 0
+    first_execution_error = None  # Store the first execution error encountered
+    
+    # Check if bg_color or fg_color parameter is needed
+    # Handle new format: list of tags
+    parameter_tags = []
+    if parameters:
+        if isinstance(parameters, list):
+            parameter_tags = parameters
+        elif isinstance(parameters, dict):
+            # Backward compatibility: convert dict to list
+            if parameters.get('bg_color') is not None:
+                parameter_tags = ['bg_color']
+            elif parameters.get('fg_color') is not None:
+                parameter_tags = ['fg_color']
+            else:
+                parameter_tags = []
+    
+    # Reuse GridSampler instance across all attempts
+    sampler = GridSampler()
+    
+    attributes = {
+        'min_grid_dim': min_grid_dim,
+        'max_grid_dim': max_grid_dim
+    }
+    while len(examples) < num_examples and attempts < max_attempts:
+        attempts += 1
+        
+        debug_info = None
+        if task_name is not None:
+            debug_info = {}
+            debug_info['task_name'] = task_name
+
+        input_grids_list, object_mask_list, instructions_to_execute, _, param_values = attempt_to_generate(
+            instructions, grid_categories, attributes, parameter_tags, sampler, parameter_values)
+
+        # Normalize to lists
+        if not isinstance(input_grids_list, list):
+            input_grids_list = [input_grids_list]
+        if not isinstance(object_mask_list, list):
+            object_mask_list = [object_mask_list]
+        
+        # Ensure object_mask_list has the same length as input_grids_list
+        while len(object_mask_list) < len(input_grids_list):
+            object_mask_list.append([])
+        
+        # Execute program on all k grids
+        all_valid, output_grids_list, error_traceback = execute_on_all_grids(
+            input_grids_list, object_mask_list, instructions_to_execute, catch_exceptions=catch_exceptions, debug_info=debug_info)
+        
+        # Store the first execution error we encounter
+        if not all_valid and error_traceback and first_execution_error is None:
+            first_execution_error = error_traceback
+        
+        # Create examples if all grids executed successfully
+        if all_valid and len(output_grids_list) == len(input_grids_list):
+            new_examples = create_examples_from_grids(input_grids_list, output_grids_list, object_mask_list, param_values)
+            examples.extend(new_examples)
+
+    if len(examples) < num_examples:
+        error_msg = f"Only generated {len(examples)} out of {num_examples} requested examples after {max_attempts} attempts"
+        if first_execution_error:
+            error_msg += f"\n\nExecution error encountered:\n{first_execution_error}"
+        if strict:
+            raise ValueError(error_msg)
+        else:
+            import warnings
+            warnings.warn(error_msg)
+
+    # Convert all NumPy types to native Python types for JSON serialization
+    examples_serializable = convert_numpy_types(examples)
+    return examples_serializable
 
 
-def find_max_parameter_number(instructions):
-    """Find the maximum parameter number (param1, param2, etc.) in instructions.
-    
-    Args:
-        instructions: The program instructions (may contain "param1", "param2", etc.)
-    
-    Returns:
-        Maximum parameter number found (0 if no parameters)
-    """
-    max_param = 0
-    
-    def search_in_item(item):
-        nonlocal max_param
-        if isinstance(item, list):
-            for subitem in item:
-                search_in_item(subitem)
-        elif isinstance(item, str) and item.startswith("param") and len(item) > 5:
-            try:
-                param_num = int(item[5:])
-                if param_num > max_param:
-                    max_param = param_num
-            except ValueError:
-                pass
-    
-    for instruction in instructions:
-        search_in_item(instruction)
-    
-    return max_param
-
-def replace_parameter_placeholders(instructions, parameters=None, parameter_values=None):
+def replace_parameter_placeholders(instructions, parameter_values=None):
     """Replace parameter placeholders in instructions with actual values.
     
     Args:
@@ -176,6 +240,62 @@ def replace_parameter_placeholders(instructions, parameters=None, parameter_valu
     
     return replaced
 
+
+# =========================================================================== Private methods ==============================================================================
+
+def convert_numpy_types(obj):
+    """Recursively convert NumPy types to native Python types for JSON serialization.
+    
+    Args:
+        obj: Object that may contain NumPy types (int64, float64, etc.)
+    
+    Returns:
+        Object with all NumPy types converted to Python native types
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    else:
+        return obj
+
+def find_max_parameter_number(instructions):
+    """Find the maximum parameter number (param1, param2, etc.) in instructions.
+    
+    Args:
+        instructions: The program instructions (may contain "param1", "param2", etc.)
+    
+    Returns:
+        Maximum parameter number found (0 if no parameters)
+    """
+    max_param = 0
+    
+    def search_in_item(item):
+        nonlocal max_param
+        if isinstance(item, list):
+            for subitem in item:
+                search_in_item(subitem)
+        elif isinstance(item, str) and item.startswith("param") and len(item) > 5:
+            try:
+                param_num = int(item[5:])
+                if param_num > max_param:
+                    max_param = param_num
+            except ValueError:
+                pass
+    
+    for instruction in instructions:
+        search_in_item(instruction)
+    
+    return max_param
+
 def assign_color_parameters(parameter_tags, unique_colors, bg_color, used_colors=None):
     """Assign colors to color-related parameters, ensuring mutual exclusivity.
     
@@ -279,17 +399,7 @@ def generate_grid(attributes, grid_categories, sampler=None):
     return input_grid_np, object_mask
 
 
-def generate_basic(attributes, parameter_tags, sampler=None, k=3, preset_parameter_values=None):
-    if sampler is None:
-        sampler = GridSampler()
-
-    has_bg_color_param = parameter_tags and 'bg_color' in parameter_tags
-
-    # Use min_grid_dim and max_grid_dim if provided
-    sample_kwargs = {}
-    sample_kwargs['min_dim'] = attributes['min_grid_dim']
-    sample_kwargs['max_dim'] = attributes['max_grid_dim']
-
+def _process_parameter_tags(parameter_tags, preset_parameter_values, sample_kwargs, attributes):
     if 'bg_color' in parameter_tags:
         if isinstance(parameter_tags, list):
             try:
@@ -343,8 +453,22 @@ def generate_basic(attributes, parameter_tags, sampler=None, k=3, preset_paramet
                 if c is None:
                     c = np.random.randint(0, 10)
                 colors_present.append(c)
+
     if colors_present:
         sample_kwargs['colors_present'] = colors_present
+
+def generate_basic(attributes, parameter_tags, sampler=None, k=3, preset_parameter_values=None):
+    if sampler is None:
+        sampler = GridSampler()
+
+    has_bg_color_param = parameter_tags and 'bg_color' in parameter_tags
+
+    # Use min_grid_dim and max_grid_dim if provided
+    sample_kwargs = {}
+    sample_kwargs['min_dim'] = attributes['min_grid_dim']
+    sample_kwargs['max_dim'] = attributes['max_grid_dim']
+
+    _process_parameter_tags(parameter_tags, preset_parameter_values, sample_kwargs, attributes)
 
     grids = []
     unique_colors_list = []
@@ -411,16 +535,11 @@ def generate_basic(attributes, parameter_tags, sampler=None, k=3, preset_paramet
     # Return all 3 input grids, but for backward compatibility keep older return signature too
     return grids, param_values # No bg_mask for basic grids
 
-
-def attempt_to_generate(placeholder_instructions, grid_categories, attributes, parameter_tags, sampler=None, preset_parameter_values=None, debug_info=None):
-    # If bg_color or fg_color parameter is specified, randomly select bg_color for this example
-    # 50% chance of being 0, 50% chance of being 1-9
-    # Note: fg_color will be selected after grid generation to ensure mutual exclusivity
-    
-    has_bg_color_param = parameter_tags and 'bg_color' in parameter_tags
+def _process_bg_color(parameter_tags, preset_parameter_values, has_bg_color_param):
     has_fg_color_param = parameter_tags and 'fg_color' in parameter_tags
 
     bg_color = None
+
     # Check if bg_color is preset
     if preset_parameter_values:
         bg_color_index = None
@@ -443,11 +562,78 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
             bg_color = 0
         else:
             bg_color = np.random.randint(1, 10)
+
+    return bg_color
+
+def _check_get_object(placeholder_instructions):
+    # Check if instructions contain get_objects and/or get_bg anywhere in the program
+    # In token sequence format: [SOS (0), primitive, SOP (1), args..., EOS (3)]
+    # Primitive codes are offset by NUM_SPECIAL_TOKENS (4)
+    # get_objects = 11 in DSL, so 11 + 4 = 15 in token sequence
+    # get_bg = 12 in DSL, so 12 + 4 = 16 in token sequence
+    has_get_objects = False
+    has_get_bg = False
+    get_objects_indices = []
+    get_bg_indices = []
     
-    attributes['bg_color'] = bg_color
+    for idx, instr in enumerate(placeholder_instructions):
+        if len(instr) > 1:
+            prim_code = instr[1]
+            if prim_code == 15:  # get_objects
+                has_get_objects = True
+                get_objects_indices.append(idx)
+            elif prim_code == 16:  # get_bg
+                has_get_bg = True
+                get_bg_indices.append(idx)
+    
+    return has_get_objects, has_get_bg
+
+def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_objects, has_get_bg, initial_state):
+    grids = []
+    object_masks = []
+
+    input_grid_np, object_mask = generate_grid(attributes, categories_to_use, sampler)
+    grids.append(input_grid_np)
+    object_masks.append(object_mask)
+
+    # Convert to DSL GridObject
+    input_grid_dsl = DSL.GridObject.from_grid(input_grid_np)
+
+    # Only use object_mask if the program actually needs get_objects/get_bg
+    if has_get_objects or has_get_bg:
+        # Convert object_mask to numpy array and ensure it's 2D
+        grid_height, grid_width = input_grid_np.shape[:2]
+        
+        if isinstance(object_mask, np.ndarray):
+            object_mask_np = object_mask.copy()
+        else:
+            object_mask_np = np.array(object_mask, dtype=np.int32)
+        
+        # Ensure the mask is 2D and matches the grid shape
+        if object_mask_np.ndim != 2:
+            if object_mask_np.size == grid_height * grid_width:
+                object_mask_np = object_mask_np.reshape(grid_height, grid_width)
+            else:
+                raise ValueError(f"object_mask size {object_mask_np.size} (shape {object_mask_np.shape}) doesn't match grid size {grid_height * grid_width}")
+        elif object_mask_np.shape != (grid_height, grid_width):
+            if object_mask_np.size == grid_height * grid_width:
+                object_mask_np = object_mask_np.reshape(grid_height, grid_width)
+            else:
+                raise ValueError(f"object_mask shape {object_mask_np.shape} doesn't match grid shape ({grid_height}, {grid_width})")
+
+    return grids, object_masks, input_grid_dsl
+
+def attempt_to_generate(placeholder_instructions, grid_categories, attributes, parameter_tags, sampler=None, preset_parameter_values=None):
+    # If bg_color or fg_color parameter is specified, randomly select bg_color for this example
+    # 50% chance of being 0, 50% chance of being 1-9
+    # Note: fg_color will be selected after grid generation to ensure mutual exclusivity
+    
+    has_bg_color_param = parameter_tags and 'bg_color' in parameter_tags
+
+    attributes['bg_color'] = _process_bg_color(parameter_tags, preset_parameter_values, has_bg_color_param)
 
     # Generate input grid based on constraints
-    object_mask = []  # Initialize object_mask (will be empty for basic sampling)
+
     if grid_categories == ['basic']:
         grids, param_values = generate_basic(attributes, parameter_tags, sampler, preset_parameter_values=preset_parameter_values)
         
@@ -467,26 +653,8 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
         object_masks = [[] for _ in range(len(grids) if isinstance(grids, list) else 1)]
         return grids, object_masks, instructions_to_execute, initial_state, param_values
     else:
-        # Check if instructions contain get_objects and/or get_bg anywhere in the program
-        # In token sequence format: [SOS (0), primitive, SOP (1), args..., EOS (3)]
-        # Primitive codes are offset by NUM_SPECIAL_TOKENS (4)
-        # get_objects = 11 in DSL, so 11 + 4 = 15 in token sequence
-        # get_bg = 12 in DSL, so 12 + 4 = 16 in token sequence
-        has_get_objects = False
-        has_get_bg = False
-        get_objects_indices = []
-        get_bg_indices = []
-        
-        for idx, instr in enumerate(placeholder_instructions):
-            if len(instr) > 1:
-                prim_code = instr[1]
-                if prim_code == 15:  # get_objects
-                    has_get_objects = True
-                    get_objects_indices.append(idx)
-                elif prim_code == 16:  # get_bg
-                    has_get_bg = True
-                    get_bg_indices.append(idx)
-        
+        has_get_objects, has_get_bg = _check_get_object(placeholder_instructions)
+
         # For object completion tasks (has_get_objects), use the same grid_category for all k examples
         categories_to_use = grid_categories
         if has_get_objects and len(grid_categories) > 1:
@@ -498,45 +666,12 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
         k = 3
         grids = []
         object_masks = []
-
+        initial_state = []
         for _ in range(k):
-            input_grid_np, object_mask = generate_grid(attributes, categories_to_use, sampler)
-            grids.append(input_grid_np)
-            object_masks.append(object_mask)
-        
-            # Convert to DSL GridObject
-            input_grid_dsl = DSL.GridObject.from_grid(input_grid_np)
-            initial_state = [[input_grid_dsl]]
-
-            # Only use object_mask if the program actually needs get_objects/get_bg
-            if has_get_objects or has_get_bg:
-                # Convert object_mask to numpy array and ensure it's 2D
-                grid_height, grid_width = input_grid_np.shape[:2]
-                
-                if isinstance(object_mask, np.ndarray):
-                    object_mask_np = object_mask.copy()
-                else:
-                    object_mask_np = np.array(object_mask, dtype=np.int32)
-                
-                # Ensure the mask is 2D and matches the grid shape
-                if object_mask_np.ndim != 2:
-                    if object_mask_np.size == grid_height * grid_width:
-                        object_mask_np = object_mask_np.reshape(grid_height, grid_width)
-                    else:
-                        raise ValueError(f"object_mask size {object_mask_np.size} (shape {object_mask_np.shape}) doesn't match grid size {grid_height * grid_width}")
-                elif object_mask_np.shape != (grid_height, grid_width):
-                    if object_mask_np.size == grid_height * grid_width:
-                        object_mask_np = object_mask_np.reshape(grid_height, grid_width)
-                    else:
-                        raise ValueError(f"object_mask shape {object_mask_np.shape} doesn't match grid shape ({grid_height}, {grid_width})")
-                
-                # Keep all instructions - get_objects and get_bg will be executed by the interpreter
-                # with the object_mask and bg_mask passed to it
-                instructions_copy = placeholder_instructions
-            else:
-                # No get_objects/get_bg needed - but we still want to keep object_mask for the output
-                # object_mask is already available in this scope, we'll use it when creating the example
-                instructions_copy = placeholder_instructions  # Will be copied in replace_parameter_placeholders if needed
+            tmp_grids, tmp_object_masks, tmp_init_state = _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_objects, has_get_bg)
+            grids.append(tmp_grids)
+            object_masks.append(tmp_object_masks)
+            initial_state.append([tmp_init_state])
         
         # Replace parameter placeholders with actual values for this example
         # Extract unique colors from the input grid for existing_color parameters
@@ -572,8 +707,8 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
             # First, handle bg_color if present (it's used for grid generation, not as a parameter)
             # But we still need to track it for mutual exclusivity
             used_colors = set()
-            if has_bg_color_param and bg_color is not None:
-                used_colors.add(bg_color)
+            if has_bg_color_param and attributes['bg_color'] is not None:
+                used_colors.add(attributes['bg_color'])
             
             # Track colors already used by preset values
             for i, value in param_values.items():
@@ -585,7 +720,7 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
             generated_param_values, _ = assign_color_parameters(
                 parameter_tags, 
                 unique_colors, 
-                bg_color, 
+                attributes['bg_color'], 
                 used_colors
             )
             
@@ -600,50 +735,12 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
                     param_values[i] = np.random.randint(1, 6)  # Random margin value 1-5
         
         # Pass the list of tags and the values dict
-        instructions_to_execute = replace_parameter_placeholders(instructions_copy, parameter_tags, param_values)
+        instructions_to_execute = replace_parameter_placeholders(placeholder_instructions, parameter_tags, param_values)
 
         # Return all k=3 grids and object_masks
         # Return grids (list of k=3 grids) as input_grid_np, and object_masks (list of k=3 object_masks)
         # Also return bg_masks if they were created
         return grids, object_masks, instructions_to_execute, initial_state, param_values
-
-
-def format_instruction_as_text(inst):
-    """Convert a token sequence instruction to human-readable text.
-    
-    Args:
-        inst: Token sequence instruction (list of integers)
-    
-    Returns:
-        Human-readable string representation of the instruction
-    """
-    if not isinstance(inst, list) or len(inst) < 3:
-        return str(inst)
-    
-    try:
-        # Convert token sequence to intermediate representation (tuple)
-        token_tuple = ProgUtils.convert_token_seq_to_token_tuple(inst, DSL)
-        
-        # Convert tuple to string representation
-        prim_name, arg_strs = ProgUtils.convert_token_tuple_to_str(token_tuple, DSL)
-        
-        # Format arguments
-        formatted_args = []
-        for arg in arg_strs:
-            if isinstance(arg, tuple):
-                # Object-attribute pair
-                formatted_args.append(f"({arg[0]}, {arg[1]})")
-            else:
-                formatted_args.append(str(arg))
-        
-        # Format as: primitive(arg1, arg2, ...)
-        if formatted_args:
-            return f"{prim_name}({', '.join(formatted_args)})"
-        else:
-            return prim_name
-    except Exception as e:
-        # Fallback to string representation if conversion fails
-        return str(inst)
 
 
 def execute_program(input_grid_np, instructions, initial_state, catch_exceptions=True, object_mask=None, debug_info=None):
@@ -821,120 +918,3 @@ def create_examples_from_grids(input_grids_list, output_grids_list, object_mask_
     
     return examples
     
-
-def generate_grid_examples(instructions, num_examples=3, grid_categories=None, strict=True, parameters=None, min_grid_dim=None, max_grid_dim=None, 
-                           parameter_values=None, catch_exceptions=True, task_name=None):
-    """Generate input-output grid examples using the instructions.
-    
-    Args:
-        instructions: The program instructions to execute (list of instruction sequences)
-        num_examples: Number of examples to generate
-        grid_categories: List of grid categories. If ['basic'] or None, uses sampler.sample().
-                         Otherwise, uses sampler.sample_by_category() with the categories.
-        strict: If True, raises ValueError if fewer than num_examples are generated.
-                If False, returns whatever examples were generated (with a warning printed).
-        parameters: Optional list of tags, one per parameter index. Each tag applies to the parameter
-                   at the corresponding index (param1 = index 0, param2 = index 1, etc.).
-                   Tags can be: 'bg_color', 'fg_color', 'color', 'margin', 'existing_color', or empty string.
-                   For backward compatibility, also accepts dict format with 'bg_color' or 'fg_color' keys.
-                   If 'bg_color' tag is present, bg_color will be randomly selected for each example
-                   (50% chance of 0, 50% chance of 1-9) and used for grid generation.
-                   If 'fg_color' tag is present, bg_color will be selected the same way for grid generation,
-                   but param placeholders with 'fg_color' tag will be replaced with a random color (0-9) excluding bg_color.
-                   If 'existing_color' tag is present, param placeholders will be replaced with a color that
-                   exists in the input grid (randomly sampled from unique pixel values in the grid).
-                   All color-related parameters ('color', 'fg_color', 'existing_color') are mutually exclusive:
-                   no color value will be reused across different parameters of these types.
-        min_grid_dim: Minimum grid dimension for sample_by_category calls. If None, not passed.
-        max_grid_dim: Maximum grid dimension for sample_by_category calls. If None, not passed.
-        parameter_values: Optional dict mapping parameter indices (0-based) or param names (e.g., 'param1')
-                         to their actual values. If provided, these values will be used instead of
-                         auto-generated values. Keys can be integers (0-based index) or strings like 'param1'.
-                         If a parameter is not in this dict, it will be auto-generated as usual.
-    
-    Returns:
-        List of dictionaries with 'input' and 'output' keys, each containing a 2D list of integers
-        representing the grid cells.
-    
-    Raises:
-        ValueError: If strict=True and fewer than num_examples are generated
-    """
-    if grid_categories is None:
-        grid_categories = ['basic']
-
-    examples = []
-    max_attempts = num_examples * 10  # Try up to 10x the number of examples needed
-
-    attempts = 0
-    first_execution_error = None  # Store the first execution error encountered
-    
-    # Check if bg_color or fg_color parameter is needed
-    # Handle new format: list of tags
-    parameter_tags = []
-    if parameters:
-        if isinstance(parameters, list):
-            parameter_tags = parameters
-        elif isinstance(parameters, dict):
-            # Backward compatibility: convert dict to list
-            if parameters.get('bg_color') is not None:
-                parameter_tags = ['bg_color']
-            elif parameters.get('fg_color') is not None:
-                parameter_tags = ['fg_color']
-            else:
-                parameter_tags = []
-    
-    # Reuse GridSampler instance across all attempts
-    sampler = GridSampler()
-    
-    attributes = {
-        'min_grid_dim': min_grid_dim,
-        'max_grid_dim': max_grid_dim
-    }
-    while len(examples) < num_examples and attempts < max_attempts:
-        attempts += 1
-        
-        debug_info = None
-        if task_name is not None:
-            debug_info = {}
-            debug_info['task_name'] = task_name
-
-        input_grids_list, object_mask_list, instructions_to_execute, _, param_values = attempt_to_generate(
-            instructions, grid_categories, attributes, parameter_tags, sampler, parameter_values)
-
-        # Normalize to lists
-        if not isinstance(input_grids_list, list):
-            input_grids_list = [input_grids_list]
-        if not isinstance(object_mask_list, list):
-            object_mask_list = [object_mask_list]
-        
-        # Ensure object_mask_list has the same length as input_grids_list
-        while len(object_mask_list) < len(input_grids_list):
-            object_mask_list.append([])
-        
-        # Execute program on all k grids
-        all_valid, output_grids_list, error_traceback = execute_on_all_grids(
-            input_grids_list, object_mask_list, instructions_to_execute, catch_exceptions=catch_exceptions, debug_info=debug_info)
-        
-        # Store the first execution error we encounter
-        if not all_valid and error_traceback and first_execution_error is None:
-            first_execution_error = error_traceback
-        
-        # Create examples if all grids executed successfully
-        if all_valid and len(output_grids_list) == len(input_grids_list):
-            new_examples = create_examples_from_grids(input_grids_list, output_grids_list, object_mask_list, param_values)
-            examples.extend(new_examples)
-
-    if len(examples) < num_examples:
-        error_msg = f"Only generated {len(examples)} out of {num_examples} requested examples after {max_attempts} attempts"
-        if first_execution_error:
-            error_msg += f"\n\nExecution error encountered:\n{first_execution_error}"
-        if strict:
-            raise ValueError(error_msg)
-        else:
-            import warnings
-            warnings.warn(error_msg)
-
-    # Convert all NumPy types to native Python types for JSON serialization
-    examples_serializable = convert_numpy_types(examples)
-    return examples_serializable
-
