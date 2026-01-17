@@ -654,10 +654,9 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
         grids = []
         object_masks = []
         
-        for k_i in range(k):
+        for _ in range(k):
             tmp_grids, tmp_object_masks = _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_objects, has_get_bg)
             
-            print(f"==> tmp_grids {k_i}: {tmp_grids}")
             grids.append(tmp_grids)
             object_masks.append(tmp_object_masks)
 

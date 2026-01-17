@@ -2225,9 +2225,11 @@ class DreamingDataGenerator:
             prim_name, arg_refs = self._find_compatible_primitive(instructions, line_idx)
             if prim_name is None:
                 continue
+            found_match = True
+            break
                         
         if not found_match or prim_name is None or arg_refs is None:
-            return None, False
+            return None
         
         # Create the new instruction
         new_instr = self._create_instruction_string(prim_name, arg_refs)
@@ -2394,6 +2396,9 @@ class DreamingDataGenerator:
         elif operation == 'edit':
             mutated_instrs = self._mutation_edit(instructions, line_idx)
 
+        if mutated_instrs is None:
+            return None, False
+
         # Reconstruct program string
         mutated_prog = program_lines_to_block_of_text(mutated_instrs)
 
@@ -2433,7 +2438,7 @@ class DreamingDataGenerator:
         if VERBOSE:
             print("\tApplying composition")
 
-        original_task = copy.deepcopy.copy(task)
+        original_task = copy.deepcopy(task)
         new_task, is_valid = self.apply_composition(task, task_two)
 
         if new_task is None:
@@ -2456,11 +2461,11 @@ class DreamingDataGenerator:
                 if VERBOSE:
                     print("\tValidation succeeded!")
                 if return_only:
-                    return new_task
+                    return new_task, is_valid, True
 
                 self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)                    
 
-                return new_task
+                return new_task, is_valid, True
             else:
                 if VERBOSE:
                     print("\tValidation failed in validate_generated_task")
@@ -2471,13 +2476,13 @@ class DreamingDataGenerator:
             if new_task is None:
                 new_task = original_task     # In the case of complete failure, revert to previous task
 
-        return new_task, is_valid
+        return new_task, is_valid, False
 
     def apply_and_validate_crossover(self, task, task_two, return_only):
         if VERBOSE:
             print("\tApplying crossover")
 
-        original_task = copy.deepcopy.copy(task)            
+        original_task = copy.deepcopy(task)            
         new_task, is_valid = self.apply_crossover(task, task_two)
 
         if new_task is None:
@@ -2499,12 +2504,13 @@ class DreamingDataGenerator:
             if is_valid:
                 if VERBOSE:
                     print("\tValidation succeeded!")
+
                 if return_only:
-                    return new_task
+                    return new_task, is_valid, True
 
                 self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)
 
-                return new_task
+                return new_task, is_valid, True
             else:
                 if VERBOSE:
                     print("\tValidation failed in validate_generated_task")
@@ -2514,13 +2520,13 @@ class DreamingDataGenerator:
             if new_task is None:
                 new_task = original_task     # In the case of complete failure, revert to previous task
 
-        return new_task, is_valid
+        return new_task, is_valid, False
 
     def apply_and_validate_mutation(self, task, return_only):
         if VERBOSE:
             print("\tApplying mutation")
 
-        original_task = copy.deepcopy.copy(task)
+        original_task = copy.deepcopy(task)
         new_task, is_valid = self.apply_mutation(task)
 
         if new_task is None:
@@ -2547,11 +2553,11 @@ class DreamingDataGenerator:
                     if VERBOSE:
                         print("\tValidation succeeded!")
                     if return_only:
-                        return new_task
+                        return new_task, is_valid, True
 
                     self.save_task(full_task_db, new_task, tasks_to_mark_obsolete)
 
-                    return new_task
+                    return new_task, is_valid, True
                 else:
                     if VERBOSE:
                         print("\tValidation failed in validate_generated_task")
@@ -2561,6 +2567,8 @@ class DreamingDataGenerator:
         else:
             if new_task is None:
                 new_task = original_task     # In the case of complete failure, revert to previous task
+
+        return new_task, is_valid, False
 
     def dream_iteration(self, probs, max_step_count, return_only):
         
@@ -2579,18 +2587,36 @@ class DreamingDataGenerator:
                 print(f"Attempt #{(max_step_count - multi_step_counter) + 1}...")
 
             if a < probs[0] and not already_composed:
-                new_task, is_valid = self.apply_and_validate_composition(task, task_two, return_only)
+                if VERBOSE:
+                    print("==> Applying composition: ")
+                new_task, is_valid, is_final = self.apply_and_validate_composition(task, task_two, return_only)
+                if VERBOSE:
+                    print(f"==> Composition result: is_valid = {is_valid}, is_final = {is_final}")
                 if is_valid:
                     already_composed = True
 
             elif a < probs[1]:
-                new_task, is_valid = self.apply_and_validate_crossover(task, task_two, return_only)
+                if VERBOSE:
+                    print("==> Applying crossover: ")
+                new_task, is_valid, is_final = self.apply_and_validate_crossover(task, task_two, return_only)
+                if VERBOSE:
+                    print(f"==> Crossover result: is_valid = {is_valid}, is_final = {is_final}")
 
             else:
-                new_task, is_valid = self.apply_and_validate_mutation(task, return_only)
+                if VERBOSE:
+                    print("==> Applying mutation: ")
+                new_task, is_valid, is_final = self.apply_and_validate_mutation(task, return_only)
+                if VERBOSE:
+                    print(f"==> Mutation result: is_valid = {is_valid}, is_final = {is_final}")
+
+            if is_final:
+                return new_task 
 
             task = new_task
             multi_step_counter -= 1
+
+        return None
+
 
 def format_json_with_compact_integer_lists(obj, indent=2, current_indent=0):
     """Recursively format JSON with integer lists on a single line."""
