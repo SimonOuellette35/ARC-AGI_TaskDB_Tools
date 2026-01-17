@@ -188,7 +188,9 @@ def replace_parameter_placeholders(instructions, parameter_values=None):
         
         for item in instruction:
             if isinstance(item, list):
-                result.append(replace_in_instruction(item))
+                replaced_item = replace_in_instruction(item)
+                if replaced_item is not None:
+                    result.append(replaced_item)
             elif isinstance(item, str):
                 # Replace parameter placeholders with actual values
                 # IMPORTANT: Integer literals in token sequences must be offset by NUM_SPECIAL_TOKENS
@@ -236,7 +238,9 @@ def replace_parameter_placeholders(instructions, parameter_values=None):
     # Replace parameters in each instruction
     replaced = []
     for i, instruction in enumerate(instructions):
-        replaced.append(replace_in_instruction(instruction))
+        replaced_instruction = replace_in_instruction(instruction)
+        if replaced_instruction is not None:
+            replaced.append(replaced_instruction)
     
     return replaced
 
@@ -593,7 +597,7 @@ def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_ob
 
     object_mask_np = None
     # Process object_mask if it's provided by generate_grid
-    if object_mask is not None:
+    if has_get_objects or has_get_bg:
         # Convert object_mask to numpy array and ensure it's 2D
         grid_height, grid_width = input_grid_np.shape[:2]
         
