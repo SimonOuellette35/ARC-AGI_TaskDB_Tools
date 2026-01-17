@@ -592,8 +592,8 @@ def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_ob
     input_grid_np, object_mask = generate_grid(attributes, categories_to_use, sampler)
 
     object_mask_np = None
-    # Only use object_mask if the program actually needs get_objects/get_bg
-    if has_get_objects or has_get_bg:
+    # Process object_mask if it's provided by generate_grid
+    if object_mask is not None:
         # Convert object_mask to numpy array and ensure it's 2D
         grid_height, grid_width = input_grid_np.shape[:2]
         

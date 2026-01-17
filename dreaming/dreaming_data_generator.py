@@ -18,6 +18,7 @@ import AmotizedDSL.program_interpreter as pi
 from AmotizedDSL.prog_utils import ProgUtils
 import copy
 from dreaming.utils import DreamingUtils
+import ARC_gym.utils.visualization as viz
 
 
 VERBOSE = False
@@ -1065,7 +1066,7 @@ class DreamingDataGenerator:
 
         return has_valid_mask, object_mask_np
 
-    def _process_parameters(self, parameter_tags, example_params, input_grid_np, attempt):
+    def _process_parameters(self, instructions_to_execute, parameter_tags, example_params, input_grid_np, attempt):
         # Handle parameters if needed
         # Only process parameters if the task actually has parameter tags
         # If parameter_tags is empty, skip parameter handling entirely (even if example_params is provided)
@@ -1127,6 +1128,8 @@ class DreamingDataGenerator:
                 instructions_to_execute = replace_parameter_placeholders(
                     instructions_to_execute, param_values
                 )
+        
+        return instructions_to_execute
 
     def _apply_task_to_input_grid(self, task, input_grid, object_mask=None, example_params=None, attempt=0):
         """Apply a task's program to a specific input grid.
@@ -1191,7 +1194,7 @@ class DreamingDataGenerator:
                     initial_state[0].append(bg_grid[0])
                     instructions_to_execute = instructions[1:]
                         
-            instructions_to_execute = self._process_parameters(parameter_tags, example_params, input_grid_np, attempt)
+            instructions_to_execute = self._process_parameters(instructions_to_execute, parameter_tags, example_params, input_grid_np, attempt)
 
             # Execute program
             debug_info = {}
@@ -1207,7 +1210,8 @@ class DreamingDataGenerator:
             # The caller will handle the None return appropriately
             # Only print if it's not a common execution error (to reduce noise)
             # Uncomment the line below for detailed debugging:
-            # print(f"Error in _apply_task_to_input_grid for task '{task.get('name', 'unknown')}': {e}\n{traceback.format_exc()}")
+            import traceback
+            print(f"Error in _apply_task_to_input_grid for task '{task.get('name', 'unknown')}': {e}\n{traceback.format_exc()}")
             return None
     
     def _compare_output_grids(self, grid1, grid2):
@@ -1363,8 +1367,6 @@ class DreamingDataGenerator:
                     mutated_task, input_grid, object_mask, example_params=example_params, attempt=0
                 )
                 
-                # viz.draw_grid_triple(input_grid, original_output, mutated_output)
-
                 if original_output is None and mutated_output is not None:
                     print("Mutation validation automatically passed: original task is invalid but mutated task is valid.")
                     return True
@@ -1468,7 +1470,7 @@ class DreamingDataGenerator:
                 matches += 1
 
         match_percentage = matches / len(combined_output_grids) if combined_output_grids else 0
-        
+
         # If more than N% match, handle according to program length
         if match_percentage > 0.9:
             # Calculate program length as total number of tokens in instruction sequences
