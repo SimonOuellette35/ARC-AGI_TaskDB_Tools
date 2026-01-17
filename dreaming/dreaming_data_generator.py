@@ -22,6 +22,7 @@ import ARC_gym.utils.visualization as viz
 
 
 VERBOSE = False
+DISPLAY_PROGRAM_VALIDATION_TRACEBACK = False
 
 # ============================================================================ Public methods ===============================================================================
 
@@ -1210,8 +1211,9 @@ class DreamingDataGenerator:
             # The caller will handle the None return appropriately
             # Only print if it's not a common execution error (to reduce noise)
             # Uncomment the line below for detailed debugging:
-            import traceback
-            print(f"Error in _apply_task_to_input_grid for task '{task.get('name', 'unknown')}': {e}\n{traceback.format_exc()}")
+            if DISPLAY_PROGRAM_VALIDATION_TRACEBACK:
+                import traceback
+                print(f"Error in _apply_task_to_input_grid for task '{task.get('name', 'unknown')}': {e}\n{traceback.format_exc()}")
             return None
     
     def _compare_output_grids(self, grid1, grid2):
