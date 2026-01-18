@@ -442,7 +442,7 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
             try:
                 program_lines = block_of_text_to_program_lines(program_str)
                 # Convert to instructions
-                instructions = ProgUtils.convert_user_format_to_token_seq(program_lines, DSL)
+                instructions = ProgUtils.convert_user_format_to_token_seq(program_lines)
             except Exception as e:
                 import traceback
                 error_trace = traceback.format_exc()
