@@ -3019,7 +3019,7 @@
     "validated": true
   },
   {
-    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -3041,7 +3041,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -4845,7 +4860,7 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_x, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -4907,7 +4922,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -5234,7 +5264,7 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.max_y, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_y, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -5296,7 +5326,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -6947,7 +6992,7 @@
     "validated": true
   },
   {
-    "program": "[\n  add(N+0.x, 1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, 0, N+0.y, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.max_x, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  add(N+0.x, 1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, 0, N+0.y, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.max_x, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -7053,7 +7098,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -7482,7 +7542,7 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, N+0.max_y, 0),\n  del(N+0),\n  crop(N+0, 0, 1, N+0.width, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, N+0.max_y, 0),\n  del(N+0),\n  crop(N+0, 0, 1, N+0.width, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -7589,7 +7649,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -8016,7 +8091,7 @@
     "validated": true
   },
   {
-    "program": "[\n  add(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, 0, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.width, N+0.max_y),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  add(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, 0, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.width, N+0.max_y),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -8122,7 +8197,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -8551,7 +8641,7 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.x, 1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+0),\n  crop(N+0, 1, 0, N+0.max_x, N+0.height),\n  del(N+0),\n  set_pixels(N+0, N+0.width, N+0.y, 0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.x, 1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+0),\n  crop(N+0, 1, 0, N+0.max_x, N+0.height),\n  del(N+0),\n  set_pixels(N+0, N+0.width, N+0.y, 0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -8658,7 +8748,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -13100,7 +13205,7 @@
   },
   {
     "name": "Swap Colors + Draw Line top",
-    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  set_pixels(N+0, N+0.x, 0, param1),\n  del(N+0)\n]",
+    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  set_pixels(N+0, N+0.x, 0, param1),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -13122,7 +13227,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -14145,7 +14265,7 @@
   },
   {
     "name": "Shear ZigZag Bottom Up 2 + Swap Colors",
-    "program": "[\n  sub(N+0.height, N+0.y),\n  cos_half_pi(N+1),\n  del(N+1),\n  sub(0, N+1),\n  del(N+1),\n  add(N+0.x, N+1),\n  del(N+1),\n  add(N+0.width, 1),\n  new_grid(N+2, N+0.height, 0),\n  del(N+2),\n  set_pixels(N+2, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+1),\n  add(N+0.width, 1),\n  crop(N+1, 1, 0, N+2, N+0.height),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.height, N+0.y),\n  cos_half_pi(N+1),\n  del(N+1),\n  sub(0, N+1),\n  del(N+1),\n  add(N+0.x, N+1),\n  del(N+1),\n  add(N+0.width, 1),\n  new_grid(N+2, N+0.height, 0),\n  del(N+2),\n  set_pixels(N+2, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+1),\n  add(N+0.width, 1),\n  crop(N+1, 1, 0, N+2, N+0.height),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -14330,7 +14450,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -19358,7 +19493,7 @@
   },
   {
     "name": "Draw Grid + Shift Down + SwapColor",
-    "program": "[\n  mod(N+0.x, 2),\n  mod(N+0.y, 2),\n  equal(N+1, 0),\n  equal(N+2, 0),\n  or(N+3, N+4),\n  del(N+1),\n  del(N+1),\n  del(N+1),\n  del(N+1),\n  keep(N+0.x, N+1),\n  keep(N+0.y, N+1),\n  del(N+1),\n  set_pixels(N+0, N+1, N+2, param1),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  add(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, 0, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.width, N+0.max_y),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  mod(N+0.x, 2),\n  mod(N+0.y, 2),\n  equal(N+1, 0),\n  equal(N+2, 0),\n  or(N+3, N+4),\n  del(N+1),\n  del(N+1),\n  del(N+1),\n  del(N+1),\n  keep(N+0.x, N+1),\n  keep(N+0.y, N+1),\n  del(N+1),\n  set_pixels(N+0, N+1, N+2, param1),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  add(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, 0, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.width, N+0.max_y),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -19600,7 +19735,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -19800,7 +19950,7 @@
   },
   {
     "name": "Shift Right + SwapColor + Tile Down",
-    "program": "[\n  add(N+0.x, 1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, 0, N+0.y, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.max_x, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  add(N+0.x, 1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, 0, N+0.y, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.max_x, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -19906,7 +20056,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -22600,7 +22765,7 @@
   },
   {
     "name": "Swap Colors + Vertical Flip",
-    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  sub(N+0.max_y, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  sub(N+0.max_y, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -22622,7 +22787,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -23973,7 +24153,7 @@
   },
   {
     "name": "Swap Colors + Draw Line center_vertical",
-    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  div(N+0.width, 2),\n  set_pixels(N+0, N+1, N+0.y, param1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  div(N+0.width, 2),\n  set_pixels(N+0, N+1, N+0.y, param1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -23995,7 +24175,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -25091,7 +25286,7 @@
   },
   {
     "name": "Flip V + SwapColor + Draw Line center_vertical",
-    "program": "[\n  sub(N+0.max_y, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  div(N+0.width, 2),\n  set_pixels(N+0, N+1, N+0.y, param1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_y, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  div(N+0.width, 2),\n  set_pixels(N+0, N+1, N+0.y, param1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -25153,7 +25348,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -29354,7 +29564,7 @@
   },
   {
     "name": "Swap Colors + Shear ZigZag Bottom Up",
-    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  sub(N+0.max_y, N+0.y),\n  sin_half_pi(N+1),\n  sub(0, N+2),\n  del(N+1),\n  del(N+1),\n  add(N+0.x, N+1),\n  del(N+1),\n  add(N+1, 1),\n  del(N+1),\n  add(N+0.width, 1),\n  new_grid(N+2, N+0.height, 0),\n  del(N+2),\n  set_pixels(N+2, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+1),\n  add(N+0.width, 1),\n  crop(N+1, 1, 0, N+2, N+0.height),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  sub(N+0.max_y, N+0.y),\n  sin_half_pi(N+1),\n  sub(0, N+2),\n  del(N+1),\n  del(N+1),\n  add(N+0.x, N+1),\n  del(N+1),\n  add(N+1, 1),\n  del(N+1),\n  add(N+0.width, 1),\n  new_grid(N+2, N+0.height, 0),\n  del(N+2),\n  set_pixels(N+2, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+1),\n  add(N+0.width, 1),\n  crop(N+1, 1, 0, N+2, N+0.height),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -29376,7 +29586,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -32247,7 +32472,7 @@
   },
   {
     "name": "Swap Colors + Horizontal Flip",
-    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -32269,7 +32494,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -34631,7 +34871,7 @@
   },
   {
     "name": "Tile Right + Shift Up + SwapColor",
-    "program": "[\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  sub(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, N+0.max_y, 0),\n  del(N+0),\n  crop(N+0, 0, 1, N+0.width, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  sub(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, N+0.max_y, 0),\n  del(N+0),\n  crop(N+0, 0, 1, N+0.width, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -34778,7 +35018,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -40091,7 +40346,7 @@
   },
   {
     "name": "Blank and Repeat Last Row + Swap Colors + Draw Line center_vertical",
-    "program": "[\n  add(N+0.height, 9),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  div(N+0.width, 2),\n  set_pixels(N+0, N+1, N+0.y, param1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  add(N+0.height, 9),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0),\n  div(N+0.width, 2),\n  set_pixels(N+0, N+1, N+0.y, param1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -40152,7 +40407,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,
@@ -44614,7 +44884,7 @@
   },
   {
     "name": "Object Move Left by Width + Swap Colors",
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.x, N+0.width),\n  set_x(N+0, N+2),\n  del(N+0),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+1),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch([N+1, N+2], [param2, param1], N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.x, N+0.width),\n  set_x(N+0, N+2),\n  del(N+0),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+1),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "instructions": [
       [
         0,
@@ -44714,7 +44984,22 @@
         "param2",
         3
       ],
-      null,
+      [
+        0,
+        21,
+        1,
+        62,
+        2,
+        63,
+        2,
+        "param2",
+        2,
+        "param1",
+        2,
+        61,
+        54,
+        3
+      ],
       [
         0,
         51,

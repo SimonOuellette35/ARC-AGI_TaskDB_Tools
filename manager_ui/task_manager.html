@@ -171,7 +171,8 @@
                     
                     html += `
                         <div class="task-item ${originalIndex === currentTaskIndex ? 'active' : ''}" 
-                            onclick="selectTask(${originalIndex})">
+                            onclick="selectTask(${originalIndex}, event)"
+                            tabindex="-1">
                             <span class="task-item-name">${task.name || 'Unnamed Task'}</span>
                             <span style="display: flex; align-items: center;">
                                 ${validationIcon}
@@ -222,7 +223,13 @@
         }
 
         // Select a task
-        function selectTask(index) {
+        function selectTask(index, event) {
+            // Prevent any default scroll behavior
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
             if (isEditing || isAddingNew) {
                 if (!confirm('You have unsaved changes. Discard them?')) {
                     return;
@@ -235,7 +242,31 @@
             const task = tasks[index];
             const level = task.curriculum_level !== undefined ? task.curriculum_level : -1;
             
+            // Save scroll position before re-rendering
+            const sidebar = document.querySelector('.sidebar');
+            const scrollPosition = sidebar ? sidebar.scrollTop : 0;
+            
             renderTaskList(document.getElementById('searchInput').value);
+            
+            // Function to restore scroll position forcefully
+            const restoreScroll = () => {
+                if (sidebar) {
+                    sidebar.scrollTop = scrollPosition;
+                }
+            };
+            
+            // Restore scroll position immediately and repeatedly
+            restoreScroll();
+            setTimeout(restoreScroll, 0);
+            setTimeout(restoreScroll, 10);
+            setTimeout(restoreScroll, 50);
+            requestAnimationFrame(() => {
+                restoreScroll();
+                setTimeout(restoreScroll, 0);
+                requestAnimationFrame(() => {
+                    restoreScroll();
+                });
+            });
             
             // Expand the level group if it's collapsed
             setTimeout(() => {
@@ -248,6 +279,11 @@
                         toggleLevel(level.toString(), levelHeader);
                     }
                 }
+                // Restore scroll position again after level expansion
+                restoreScroll();
+                setTimeout(restoreScroll, 50);
+                setTimeout(restoreScroll, 100);
+                setTimeout(restoreScroll, 350); // Wait for animation to complete (300ms + buffer)
             }, 10);
             
             renderTaskDetails(tasks[index]);
