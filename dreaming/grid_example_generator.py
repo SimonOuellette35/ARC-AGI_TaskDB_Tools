@@ -601,7 +601,10 @@ def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_ob
         # Convert object_mask to numpy array and ensure it's 2D
         grid_height, grid_width = input_grid_np.shape[:2]
         
-        if isinstance(object_mask, np.ndarray):
+        if object_mask is None:
+            # If object_mask is None but we need it, create a default mask (all zeros)
+            object_mask_np = np.zeros((grid_height, grid_width), dtype=np.int32)
+        elif isinstance(object_mask, np.ndarray):
             object_mask_np = object_mask.copy()
         else:
             object_mask_np = np.array(object_mask, dtype=np.int32)
