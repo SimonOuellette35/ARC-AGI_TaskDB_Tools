@@ -140,10 +140,6 @@ def replace_parameter_placeholders(instructions, parameter_values=None):
     Args:
         instructions: The program instructions (may contain "param1", "param2", etc.)
         example_index: Index of the example (0-based). param1 = example_index + 1, param2 = example_index + 2
-        parameters: Optional list of tags, one per parameter index. Each tag applies to the parameter
-                   at the corresponding index (param1 = index 0, param2 = index 1, etc.).
-                   Tags can be: 'bg_color', 'fg_color', 'color', 'margin', 'existing_color', or empty string.
-                   For backward compatibility, also accepts dict format with 'bg_color' or 'fg_color' keys.
         parameter_values: Optional dict mapping parameter indices (0-based) or param names (e.g., 'param1')
                          to their actual values. If provided, these values will be used instead of
                          example_index-based values.
