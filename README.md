@@ -2,9 +2,9 @@
 
 ![Main Diagram](images/main_diagram.png)
 
-This is a framework that allows maintaining a database of ARC-AGI tasks (for training purposes), via a web-based UI.
+This is a framework to help maintain, review, and curate a database of ARC-AGI tasks (for training purposes), via a web-based UI.
 
-It also includes a script to generate training examples from this task database, and a "dreaming" framework that uses evolutionary algorithm-like operators (crossover, mutation, composition) to derive automatically new tasks from existing tasks. These automatically generated tasks can then be reviewed via the UI, and either deleted if they don't seem to make sense, or validated if the user likes the new task.
+It also includes a script to generate training examples from this task database, and a "dreaming" framework that uses evolutionary algorithm-like operators (crossover, mutation, composition) to derive automatically new tasks from existing tasks. Think of it like data augmentation for your training tasks. These automatically generated tasks can then be reviewed via the UI, and either deleted if they don't seem to make sense, or validated if the user likes the new task.
 
 ### There are 3 main use cases / tools:
 
@@ -39,6 +39,25 @@ It also includes a script to generate training examples from this task database,
     ```
 
 ## Example 1: task DB manager
+
+    ```
+    python manager_ui/task_DB_manager.py
+    In your browser, go to URL: http://localhost:8000/manager_ui/task_manager.html
+    ```
+
+You will be a UI that lists the content of the task_DB.json file:
+
+![Screenshot 1](images/screenshot1.jpg)
+
+Click a task on the left (Example: Crop Inside) opens a panel with 3 input-output grid examples for this task. You can click the "refresh" icon to the right of the title "GRID EXAMPLES" to re-generate new examples if desired. If you scroll down, you will see the program ground truth written in the [AmotizedDSL](https://github.com/SimonOuellette35/AmotizedDSL) custom DSL. It is possible to specify comments for manually created tasks. This is optional, and not supported for automatically created tasks.
+
+![Screenshot 2](images/screenshot2.jpg)
+
+The "INSTRUCTIONS" section is a representation of the same program in token sequence format (see [AmotizedDSL](https://github.com/SimonOuellette35/AmotizedDSL) documentation for further detail) -- much less user friendly, you do not need to edit or write this part when you create a new task, as it is automatically generated from the text-based program code in the "PROGRAM (WITH COMMENTS)" section.
+
+There is the "PARAMETERS" section, that lists the parameter type of each parameter in the program ground truth. See the section below about "Program Parameters" for more information. Next to is is the "GRID CATEGORIES", which informs [ARC gym](https://github.com/SimonOuellette35/ARC_gym) what rules to use to generate the input grids (see the respective documentation in ARC gym for more information). Finally, the "GRID DIMENSIONS" is the minimum and maximum recommended grid dimensions when generating the input grid. This is fed to ARC gym as well, but note that at the moment it is not always respected for a variety of reasons (bugs + for grid dimensions are not sensible for certain types of grid categories, etc.)
+
+More details below on the EDIT, DELETE, ADD ENTRY functionalities.
 
 ## Example 2: task generation
 
