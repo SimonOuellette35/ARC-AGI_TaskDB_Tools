@@ -79,3 +79,23 @@ This will generate a training_<curriculum_lvl>.json and validation_<curriculum_l
     python scripts/generate_data.py --trainN 10000 --valN 1000 --mixed_mode
     
 Generates a training.json and validation.json of task samples from any curriculum level, all in one file (good if you don't plan to do any curriculum learning).
+
+### Using the UI to create/edit/delete tasks
+
+## Adding a new task
+
+Click "ADD ENTRY" on top of the left panel. This will create a new empty form on the main panel. Note that this is an advanced feature that assumes you are familiar with the [AmotizedDSL](https://github.com/SimonOuellette35/AmotizedDSL).
+
+![Screenshot 3](images/screenshot3.jpg)
+
+You can give an arbitrary task name and a curriculum level. The curriculum level is somewhat subjective and depends on how you can to structure the training process (or if you care at all about the concept of curriculum) -- but for a brand new concept task I, not composed or some "crossover" from two other tasks, I suggest a value of 0.
+
+The program writing part is explained further in the next section "Editing an existing task".
+
+If your task contains parameters, you can add their respective types via the parameters drop-down list. You must also specify a "grid categories" tag -- at least 1, up to 5.
+
+Finally, you simply push the Save button to write this new task to the DB (or Cancel otherwise).
+
+## Editing an existing task
+
+## Program Parameters
