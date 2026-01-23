@@ -60,7 +60,9 @@ More details below on the EDIT, DELETE, ADD ENTRY functionalities.
 
 ## Example 2: task generation via the "Dreaming" framework
 
+    python scripts/dream.py 50
 
+This runs the dreaming framework to generate 50 new programs and adds them to task_DB.json with status "Unvalidated" (red question mark icon in the task list).
 
 ## Example 3: training/validation data generation
 
