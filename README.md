@@ -40,10 +40,9 @@ It also includes a script to generate training examples from this task database,
 
 ## Example 1: task DB manager
 
-    ```
     python manager_ui/task_DB_manager.py
     In your browser, go to URL: http://localhost:8000/manager_ui/task_manager.html
-    ```
+    
 
 You will be a UI that lists the content of the task_DB.json file:
 
@@ -59,7 +58,22 @@ There is the "PARAMETERS" section, that lists the parameter type of each paramet
 
 More details below on the EDIT, DELETE, ADD ENTRY functionalities.
 
-## Example 2: task generation
+## Example 2: task generation via the "Dreaming" framework
+
+
 
 ## Example 3: training/validation data generation
 
+You can use task_DB.json to generate training and validation files for model training/evaluation.
+
+    python scripts/generate_data.py --trainN 10000 --valN 1000 --curriculum_lvl 0
+    
+This will generate training_0.json containing 10000 task samples taken randomly from the curriculum level 0 tasks in task_DB.json, and validation_0.json containing 1000 different task samples.
+
+    python scripts/generate_data.py --trainN 10000 --valN 1000
+    
+This will generate a training_<curriculum_lvl>.json and validation_<curriculum_lvl>.json for each curriculum level that exists in task_DB.json.
+
+    python scripts/generate_data.py --trainN 10000 --valN 1000 --mixed_mode
+    
+Generates a training.json and validation.json of task samples from any curriculum level, all in one file (good if you don't plan to do any curriculum learning).
