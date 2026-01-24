@@ -2,9 +2,15 @@
 
 ![Main Diagram](images/main_diagram.png)
 
-This is a framework to help maintain, review, and curate a database of ARC-AGI tasks (for training purposes), via a web-based UI.
+ARC-AGI Task DB Tools
 
-It also includes a script to generate training examples from this task database, and a "dreaming" framework that uses evolutionary algorithm-like operators (crossover, mutation, composition) to derive automatically new tasks from existing tasks. Think of it like data augmentation for your training tasks. These automatically generated tasks can then be reviewed via the UI, and either deleted if they don't seem to make sense, or validated if the user likes the new task.
+This repository provides a framework to manage, curate, and generate ARC-AGI tasks for model training and evaluation. It includes:
+
+1. A task database UI for inspection, addition, modification
+2. A task generation ("Dreaming") script
+3. A training/validation data generation script
+
+The task generation framework uses evolutionary operators (crossover, mutation, composition) to produce new candidate tasks for human review.
 
 ### There are 3 main use cases / tools:
 
@@ -80,7 +86,7 @@ This will generate a training_<curriculum_lvl>.json and validation_<curriculum_l
     
 Generates a training.json and validation.json of task samples from any curriculum level, all in one file (good if you don't plan to do any curriculum learning).
 
-### Using the UI to create/edit/delete tasks
+# Using the UI to create/edit/delete tasks
 
 ## Adding a new task
 
