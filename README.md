@@ -44,7 +44,7 @@ It also includes a script to generate training examples from this task database,
     In your browser, go to URL: http://localhost:8000/manager_ui/task_manager.html
     
 
-You will be a UI that lists the content of the task_DB.json file:
+You will see a UI that lists the content of the task_DB.json file:
 
 ![Screenshot 1](images/screenshot1.jpg)
 
