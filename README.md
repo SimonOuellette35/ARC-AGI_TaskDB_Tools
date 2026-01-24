@@ -2,8 +2,6 @@
 
 ![Main Diagram](images/main_diagram.png)
 
-ARC-AGI Task DB Tools
-
 This repository provides a framework to manage, curate, and generate ARC-AGI tasks for model training and evaluation. It includes:
 
 1. A task database UI for inspection, addition, modification
