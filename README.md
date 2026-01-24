@@ -2,9 +2,13 @@
 
 ![Main Diagram](images/main_diagram.png)
 
-This is a framework to help maintain, review, and curate a database of ARC-AGI tasks (for training purposes), via a web-based UI.
+This repository provides a framework to manage, curate, and generate ARC-AGI tasks for model training and evaluation. It includes:
 
-It also includes a script to generate training examples from this task database, and a "dreaming" framework that uses evolutionary algorithm-like operators (crossover, mutation, composition) to derive automatically new tasks from existing tasks. Think of it like data augmentation for your training tasks. These automatically generated tasks can then be reviewed via the UI, and either deleted if they don't seem to make sense, or validated if the user likes the new task.
+1. A task database UI for inspection, addition, modification
+2. A task generation ("Dreaming") script
+3. A training/validation data generation script
+
+The task generation framework uses evolutionary operators (crossover, mutation, composition) to produce new candidate tasks for human review.
 
 ### There are 3 main use cases / tools:
 
@@ -30,7 +34,7 @@ It also includes a script to generate training examples from this task database,
     git clone https://github.com/arcprize/ARC-AGI-2.git
     ```
 
-3. Install AmotizedDSL (the acutal DSL used by the program ground truths + program interpreter and utilities)
+3. Install AmotizedDSL (the actual DSL used by the program ground truths + program interpreter and utilities)
 
     ```
     git clone https://github.com/SimonOuellette35/AmotizedDSL.git
@@ -44,7 +48,7 @@ It also includes a script to generate training examples from this task database,
     In your browser, go to URL: http://localhost:8000/manager_ui/task_manager.html
     
 
-You will be a UI that lists the content of the task_DB.json file:
+You will see a UI that lists the content of the task_DB.json file:
 
 ![Screenshot 1](images/screenshot1.jpg)
 
@@ -54,7 +58,7 @@ Click a task on the left (Example: Crop Inside) opens a panel with 3 input-outpu
 
 The "INSTRUCTIONS" section is a representation of the same program in token sequence format (see [AmotizedDSL](https://github.com/SimonOuellette35/AmotizedDSL) documentation for further detail) -- much less user friendly, you do not need to edit or write this part when you create a new task, as it is automatically generated from the text-based program code in the "PROGRAM (WITH COMMENTS)" section.
 
-There is the "PARAMETERS" section, that lists the parameter type of each parameter in the program ground truth. See the section below about "Program Parameters" for more information. Next to is is the "GRID CATEGORIES", which informs [ARC gym](https://github.com/SimonOuellette35/ARC_gym) what rules to use to generate the input grids (see the respective documentation in ARC gym for more information). Finally, the "GRID DIMENSIONS" is the minimum and maximum recommended grid dimensions when generating the input grid. This is fed to ARC gym as well, but note that at the moment it is not always respected for a variety of reasons (bugs + for grid dimensions are not sensible for certain types of grid categories, etc.)
+There is the "PARAMETERS" section, that lists the parameter type of each parameter in the program ground truth. See the section below about "Program Parameters" for more information. There is also a "GRID CATEGORIES" dropdown, which informs [ARC gym](https://github.com/SimonOuellette35/ARC_gym) what rules to use to generate the input grids (see the respective documentation in ARC gym for more information). Finally, the "GRID DIMENSIONS" is the minimum and maximum recommended grid dimensions when generating the input grid. This is fed to ARC gym as well, but note that at the moment it is not always respected for a variety of reasons.
 
 More details below on the EDIT, DELETE, ADD ENTRY functionalities.
 
@@ -80,7 +84,7 @@ This will generate a training_<curriculum_lvl>.json and validation_<curriculum_l
     
 Generates a training.json and validation.json of task samples from any curriculum level, all in one file (good if you don't plan to do any curriculum learning).
 
-### Using the UI to create/edit/delete tasks
+# Using the UI to create/edit/delete tasks
 
 ## Adding a new task
 
@@ -126,3 +130,14 @@ Tasks can have parameters, which are representing by the placeholders "param1", 
 As an example, task "Set Colors" has two parameters, param1 and param2:
 
 ![Screenshot 4](images/screenshot4.jpg)
+
+Param1 has type "existing_color" and param2 has type "color". This is because "Set Colors" simply finds all pixels of color param1, and sets their value to color param2. "existing_color" ensures that the param1 value corresponds to a color that does exist in the first generated input grid of the task (note: there is currently no logic that enforces that this color exists in all grids... something for future work). "color" just refers to any valid color value.
+
+The current parameter types that exist are:
+* color: any valid color integer.
+* margin: a small integer that can represent a margin in a cropping or translation task, for example.
+* bg_color: the background pixel color (of the first input grid)
+* fg_color: any non-background pixel color (for the first grid)
+* existing_color: a color that exists in the input grid (the first one)
+
+When you generate new grid examples for a task, it randomizes these parameter values according to the allowed range implied by the parameter type. The selected values for the given batch of 3 examples is displayed just above the first generted grid example.
