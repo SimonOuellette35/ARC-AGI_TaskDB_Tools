@@ -98,4 +98,31 @@ Finally, you simply push the Save button to write this new task to the DB (or Ca
 
 ## Editing an existing task
 
+When pushing the EDIT button on a selected task, you enter edit mode for that task. Aside from the more obvious fields (name, curriculum level, min/max grid dimension), perhaps the most important functionality is the ability to modify the ground truth programs that underlies the task itself.
+
+The "PROGRAM" section expects a list of [AmotizedDSL](https://github.com/SimonOuellette35/AmotizedDSL) instructions such as:
+
+    [
+      color_set(N+0),
+      equal(N+1, param1),
+      exclude(N+1, N+2),
+      del(N+1),
+      del(N+1),
+      count_values(N+1, N+0.c),
+      del(N+0),
+      new_grid(1, N+1, N+0),
+      del(N+0),
+      del(N+0)
+    ]
+
+You can put the text cursor on any line of the program, and in the "VARIABLE STACK" section to the right, you will see the list of current variables on the stack at that position in the program (if it were executed). This makes it easier to keep track of the variable references while writing/modifying a program.
+
+Also, at any time you can push the EXECUTE button to execute the program code you have written so far.
+
 ## Program Parameters
+
+Tasks can have parameters, which are representing by the placeholders "param1", "param2", etc. in the code (and instructions). These exist because there are some aspects of tasks that can vary without justifying a specific distinct task, namely variables like color or pixel distances, margins, etc.
+
+As an example, task "Set Colors" has two parameters, param1 and param2:
+
+![Screenshot 4](images/screenshot4.jpg)
