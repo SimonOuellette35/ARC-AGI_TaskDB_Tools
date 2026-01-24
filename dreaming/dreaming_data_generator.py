@@ -1174,6 +1174,7 @@ class DreamingDataGenerator:
             has_get_bg = len(instructions) > 1 and len(instructions[1]) > 1 and instructions[1][1] == 16
             
             instructions_to_execute = instructions
+            object_mask_np = None
             if has_get_objects or has_get_bg:
                 has_valid_mask, object_mask_np = self._has_valid_object_mask(input_grid_np, object_mask)
                 
@@ -1198,9 +1199,13 @@ class DreamingDataGenerator:
             instructions_to_execute = self._process_parameters(instructions_to_execute, parameter_tags, example_params, input_grid_np, attempt)
 
             # Execute program
+            # Convert object_mask to list format (pi.execute now expects a list of k object masks)
+            # Use object_mask_np if available (processed version), otherwise use object_mask
+            mask_to_use = object_mask_np if object_mask_np is not None else object_mask
+            object_mask_list = [mask_to_use] if mask_to_use is not None else [None]
             debug_info = {}
             debug_info['task_name'] = task['name']
-            output_grids_dsl = pi.execute(instructions_to_execute, initial_state, DSL, debug_info=debug_info)
+            output_grids_dsl = pi.execute(instructions_to_execute, initial_state, DSL, object_mask_list, debug_info)
             if output_grids_dsl and len(output_grids_dsl) > 0:
                 output_grid_np = output_grids_dsl[0].cells_as_numpy()
                 return output_grid_np

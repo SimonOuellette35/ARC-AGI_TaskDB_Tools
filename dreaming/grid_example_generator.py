@@ -736,9 +736,12 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
 def execute_program(input_grid_np, instructions, initial_state, catch_exceptions=True, object_mask=None, debug_info=None):
     
     # Execute program
+    # Convert object_mask to list format (pi.execute now expects a list of k object masks)
+    object_mask_list = [object_mask] if object_mask is not None else [None]
+    
     if catch_exceptions:
         try:
-            output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask, debug_info)
+            output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask_list, debug_info)
             if output_grids_dsl and len(output_grids_dsl) > 0:
                 output_grid_np = output_grids_dsl[0].cells_as_numpy()
                 
@@ -766,7 +769,7 @@ def execute_program(input_grid_np, instructions, initial_state, catch_exceptions
 
         return True, output_grid_np, None
     else:
-        output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask, debug_info)
+        output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask_list, debug_info)
         if output_grids_dsl and len(output_grids_dsl) > 0:
             output_grid_np = output_grids_dsl[0].cells_as_numpy()
 
