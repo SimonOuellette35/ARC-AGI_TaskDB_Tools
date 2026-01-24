@@ -126,3 +126,14 @@ Tasks can have parameters, which are representing by the placeholders "param1", 
 As an example, task "Set Colors" has two parameters, param1 and param2:
 
 ![Screenshot 4](images/screenshot4.jpg)
+
+Param1 has type "existing_color" and param2 has type "color". This is because "Set Colors" simply finds all pixels of color param1, and sets their value to color param2. "existing_color" ensures that the param1 value corresponds to a color that does exist in the first generated input grid of the task (note: there is currently no logic that enforces that this color exists in all grids... something for future work). "color" just refers to any valid color value.
+
+The current parameter types that exist are:
+* color: any valid color integer.
+* margin: a small integer that can represent a margin in a cropping or translation task, for example.
+* bg_color: the background pixel color (of the first input grid)
+* fg_color: any non-background pixel color (for the first grid)
+* existing_color: a color that exists in the input grid (the first one)
+
+When you generate new grid examples for a task, it randomizes these parameter values according to the allowed range implied by the parameter type. The selected values for the given batch of 3 examples is displayed just above the first generted grid example.
