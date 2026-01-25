@@ -318,18 +318,22 @@ class DreamingDataGenerator:
         if not self._task_db_cache:
             raise ValueError("task_DB.json is empty")
 
-        # Filter tasks if curriculum_lvl is specified
-        if curriculum_lvl is not None:
-            filtered_tasks = []
-            for task in self._task_db_cache:
+        # Filter tasks: exclude tasks with validated == False
+        # Also filter by curriculum_lvl if specified
+        filtered_tasks = []
+        for task in self._task_db_cache:
+            # Exclude tasks with validated == False
+            if task.get("validated") == False:
+                continue
+            # Filter by curriculum_lvl if specified
+            if curriculum_lvl is not None:
                 # If 'curriculum_level' missing, treat as None and filter out
                 if "curriculum_level" in task and task["curriculum_level"] == curriculum_lvl:
                     filtered_tasks.append(task)
-            tasks = filtered_tasks
-        else:
-            tasks = self._task_db_cache
-
-        return tasks       
+            else:
+                filtered_tasks.append(task)
+        
+        return filtered_tasks       
 
     def generate_samples(self, tasks, N):
         # Generate examples for each selected task
