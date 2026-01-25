@@ -150,6 +150,6 @@ In the current code, get_objects and get_bg are essentially primitives that take
 
 ## Task Validation
 
-Since the automatically generated tasks are often nonsensical, there has to be a degree of humam supervision of the output of the Dreaming functionality. This is managed via the "Validated" flag associated with each task. Automatically generated tasks have validated set to False, which shows up as a red question mark next to its name in the list panel. When you select the task and click the "Validate" button, you set its validation status to True, indicating that you've reviewed and accepted it.
+Since the automatically generated tasks are often nonsensical, there has to be a degree of human supervision of the output of the Dreaming functionality. This is managed via the "Validated" flag associated with each task. Automatically generated tasks have validated set to False, which shows up as a red question mark next to its name in the list panel. When you select the task and click the "Validate" button, you set its validation status to True, indicating that you've reviewed and accepted it.
 
 Aside from a visual reminder to review certain tasks, this functionality also ensures that the training/validation sample generation logic ignores un-validated tasks.
