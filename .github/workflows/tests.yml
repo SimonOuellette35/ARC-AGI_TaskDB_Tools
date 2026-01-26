@@ -1,0 +1,42 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+        # Install ARC_gym dependency
+        git clone https://github.com/SimonOuellette35/ARC_gym.git
+        cd ARC_gym
+        pip install -e .
+        git clone https://github.com/arcprize/ARC-AGI-2.git
+        cd ..
+        # Install AmotizedDSL dependency
+        git clone https://github.com/SimonOuellette35/AmotizedDSL.git
+        cd AmotizedDSL
+        pip install -e .
+        cd ..
+    
+    - name: Run tests
+      run: |
+        pytest tests/ -v
