@@ -34,12 +34,20 @@ The task generation framework uses evolutionary operators (crossover, mutation, 
     git clone https://github.com/arcprize/ARC-AGI-2.git
     ```
 
-3. Install AmotizedDSL (the actual DSL used by the program ground truths + program interpreter and utilities)
+3. Install AmotizedDSL (the actual DSL used by the program ground truths + program interpreter and utilities):
 
     ```
     git clone https://github.com/SimonOuellette35/AmotizedDSL.git
     cd AmotizedDSL
     pip install -e .
+    ```
+    
+4. Install ARC-AGI_TaskDB_Tools and requirements:
+
+    ```
+    git clone https://github.com/SimonOuellette35/ARC-AGI_TaskDB_Tools.git
+    cd ARC-AGI_TaskDB_Tools
+    pip install -r requirements.txt
     ```
 
 ## Example 1: task DB manager
