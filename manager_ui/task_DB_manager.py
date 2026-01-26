@@ -2,6 +2,8 @@
 """
 Simple HTTP server to serve the task manager webpage and handle JSON file operations.
 Run this script and then open http://localhost:8000/manager_ui/task_manager.html in your browser.
+
+Use the --port argument to change the port number.
 """
 
 import argparse
