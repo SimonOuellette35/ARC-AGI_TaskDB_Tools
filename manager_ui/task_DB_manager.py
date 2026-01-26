@@ -4,6 +4,7 @@ Simple HTTP server to serve the task manager webpage and handle JSON file operat
 Run this script and then open http://localhost:8000/manager_ui/task_manager.html in your browser.
 """
 
+import argparse
 import json
 import os
 import sys
@@ -535,5 +536,8 @@ def run_server(port=8000):
         httpd.shutdown()
 
 if __name__ == '__main__':
-    run_server()
+    parser = argparse.ArgumentParser(description='Task DB Manager HTTP Server')
+    parser.add_argument('--port', type=int, default=8000, help='Port number to listen on (default: 8000)')
+    args = parser.parse_args()
+    run_server(port=args.port)
 
