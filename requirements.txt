@@ -2,4 +2,4 @@ tqdm
 numpy
 scipy
 matplotlib
-torch==1.13.1
+torch
