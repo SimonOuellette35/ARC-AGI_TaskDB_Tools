@@ -54,6 +54,7 @@ The task generation framework uses evolutionary operators (crossover, mutation, 
 
     python manager_ui/task_DB_manager.py
     In your browser, go to URL: http://localhost:8000/manager_ui/task_manager.html
+    (Note: if 8000 is already busy, you can set the port number with the --port argument)
     
 
 You will see a UI that lists the content of the task_DB.json file:
