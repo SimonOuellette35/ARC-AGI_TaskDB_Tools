@@ -375,7 +375,7 @@ def generate_grid(attributes, grid_categories, sampler=None):
     
     # Try to pass all parameters, fall back if not supported
     try:
-        input_grid, object_mask = sampler.sample_by_category(grid_categories, **sample_kwargs)
+        input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories, **sample_kwargs)
 
     except TypeError:
         # sample_by_category might not support some parameters
@@ -383,12 +383,12 @@ def generate_grid(attributes, grid_categories, sampler=None):
         # Try with just grid_categories first
         try:
             print("TypeError occurred")
-            input_grid, object_mask = sampler.sample_by_category(grid_categories)
+            input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories)
         except:
             print("except")
             # If that fails, try with just bg_color if specified
             if attributes['bg_color'] is not None:
-                input_grid, object_mask = sampler.sample_by_category(grid_categories, bg_color=attributes['bg_color'])
+                input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories, bg_color=attributes['bg_color'])
             else:
                 print("raising exception")
                 raise
