@@ -74,6 +74,15 @@ def program_lines_to_block_of_text(instruction_strings):
     return formatted
 
 
+def _instructions_from_task(task):
+    """Get instruction token sequence from task. Loads program and regenerates (DSL may have changed). Returns None if no program or conversion fails."""
+    program_str = task.get('program', '')
+    if not program_str:
+        return None
+    prog_lines = block_of_text_to_program_lines(program_str)
+    return ProgUtils.convert_user_format_to_token_seq(prog_lines)
+
+
 class DreamingDataGenerator:
 
     def __init__(self):
@@ -211,10 +220,10 @@ class DreamingDataGenerator:
             # Generate samples for this specific task
             task_samples = []
             for _ in tqdm(range(num_samples), desc=f"Generating for {task.get('name', '')}"):
-                # Get task properties
-                instructions = task.get('instructions', [])
+                # Get task properties (regenerate instructions from program; DSL may have changed)
+                instructions = _instructions_from_task(task)
                 if not instructions:
-                    print(f"Warning: Task '{task.get('name', '')}' has no instructions, skipping...")
+                    print(f"Warning: Task '{task.get('name', '')}' has no program or invalid program, skipping...")
                     continue
                 
                 grid_categories = task.get('grid_categories', ['basic'])
@@ -343,10 +352,10 @@ class DreamingDataGenerator:
             task_idx = random.randint(0, len(tasks) - 1)
             task = tasks[task_idx]
 
-            # Get task properties
-            instructions = task.get('instructions', [])
+            # Get task properties (regenerate instructions from program; DSL may have changed)
+            instructions = _instructions_from_task(task)
             if not instructions:
-                print(f"Warning: Task {task_idx + 1} has no instructions, skipping...")
+                print(f"Warning: Task {task_idx + 1} has no program or invalid program, skipping...")
                 continue
             
             grid_categories = task.get('grid_categories', ['basic'])
@@ -1156,8 +1165,8 @@ class DreamingDataGenerator:
             else:
                 input_grid_np = input_grid.copy()
             
-            # Get task instructions and parameters
-            instructions = task.get('instructions', [])
+            # Get task instructions from program (regenerate; DSL may have changed)
+            instructions = _instructions_from_task(task)
             if not instructions:
                 return None
             
@@ -1312,10 +1321,10 @@ class DreamingDataGenerator:
         Returns:
             True if mutated task produces different outputs, False otherwise
         """
-        # Generate examples from original task
-        original_instructions = original_task.get('instructions', [])
+        # Generate examples from original task (regenerate instructions from program)
+        original_instructions = _instructions_from_task(original_task)
         if not original_instructions:
-            print("Original task has no instructions, skipping mutation validation.")
+            print("Original task has no program or invalid program, skipping mutation validation.")
             return False
         
         original_grid_categories = original_task.get('grid_categories', ['basic'])
@@ -1404,7 +1413,7 @@ class DreamingDataGenerator:
             return False
     
     def _compare_two_object_masks(self, combined_object_masks, other_task):
-        other_instructions = other_task.get('instructions', [])
+        other_instructions = _instructions_from_task(other_task) or []
         other_has_get_objects = len(other_instructions) > 0 and len(other_instructions[0]) > 1 and other_instructions[0][1] == 15
         other_has_get_bg = len(other_instructions) > 1 and len(other_instructions[1]) > 1 and other_instructions[1][1] == 16
         other_needs_object_mask = other_has_get_objects or other_has_get_bg
@@ -1598,10 +1607,10 @@ class DreamingDataGenerator:
                         print(f"==> Program duplicate validation failure: combined task {combined_task.get('name', '')} has the same program as {other_task.get('name', '')}")
                         return False, []
             
-            # Generate 25 examples from the combined task
-            combined_instructions = combined_task.get('instructions', [])
+            # Generate 25 examples from the combined task (regenerate from program)
+            combined_instructions = _instructions_from_task(combined_task)
             if not combined_instructions:
-                print(f"==> combined instructions is empty -- why??")
+                print(f"==> combined task has no program or invalid program")
                 return False, []
             
             grid_categories = combined_task.get('grid_categories', ['basic'])
