@@ -65,8 +65,6 @@ Click a task on the left (Example: Crop Inside) opens a panel with 3 input-outpu
 
 ![Screenshot 2](images/screenshot2.jpg)
 
-The "INSTRUCTIONS" section is a representation of the same program in token sequence format (see [AmotizedDSL](https://github.com/SimonOuellette35/AmotizedDSL) documentation for further detail) -- much less user friendly, you do not need to edit or write this part when you create a new task, as it is automatically generated from the text-based program code in the "PROGRAM (WITH COMMENTS)" section.
-
 There is the "PARAMETERS" section, that lists the parameter type of each parameter in the program ground truth. See the section below about "Program Parameters" for more information. There is also a "GRID CATEGORIES" dropdown, which informs [ARC gym](https://github.com/SimonOuellette35/ARC_gym) what rules to use to generate the input grids (see the respective documentation in ARC gym for more information). Finally, the "GRID DIMENSIONS" is the minimum and maximum recommended grid dimensions when generating the input grid. This is fed to ARC gym as well, but note that at the moment it is not always respected for a variety of reasons.
 
 More details below on the EDIT, DELETE, ADD ENTRY functionalities.
