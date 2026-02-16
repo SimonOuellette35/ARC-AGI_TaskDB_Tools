@@ -344,13 +344,6 @@
                         </div>
                     </div>
 
-                    <div class="detail-section">
-                        <h3>Instructions</h3>
-                        <div class="detail-content">
-                            <pre>${escapeHtml(formatInstructions(task.instructions || []))}</pre>
-                        </div>
-                    </div>
-
                     <div class="detail-row">
                         <div class="detail-section">
                             <h3>Parameters</h3>
@@ -630,8 +623,6 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                 
                 if (isAddingNew) {
                     // Create new task
-                    // Note: instructions field is NOT added here - it will be automatically generated
-                    // from the human-readable program when needed
                     task = {
                         name: document.getElementById('editName').value,
                         curriculum_level: parseInt(document.getElementById('editCurriculumLevel').value) || 0,
@@ -1223,31 +1214,6 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                 // If parsing fails, return the original program (escaped)
                 return escapeHtml(program);
             }
-        }
-
-        // Format instructions array with inner lists on one line
-        function formatInstructions(instructions) {
-            if (!Array.isArray(instructions)) {
-                return JSON.stringify(instructions, null, 2);
-            }
-            
-            let result = '[\n';
-            for (let i = 0; i < instructions.length; i++) {
-                const item = instructions[i];
-                if (Array.isArray(item)) {
-                    // Inner list: keep on one line
-                    result += '  ' + JSON.stringify(item);
-                } else {
-                    // Other items: format normally
-                    result += '  ' + JSON.stringify(item, null, 2).split('\n').join('\n  ');
-                }
-                if (i < instructions.length - 1) {
-                    result += ',';
-                }
-                result += '\n';
-            }
-            result += ']';
-            return result;
         }
 
         // Format tags for display
