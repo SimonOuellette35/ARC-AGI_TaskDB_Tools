@@ -533,16 +533,9 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                     </div>
 
                     <div class="form-group">
-                        <label for="editParameters">Parameters</label>
-                        <select id="editParameters">
-                            <option value="">(empty parameter)</option>
-                            <option value="color">color</option>
-                            <option value="margin">margin</option>
-                            <option value="bg_color">bg_color</option>
-                            <option value="fg_color">fg_color</option>
-                            <option value="existing_color">existing_color</option>
-                            <option value="small_delta">small_delta</option>
-                        </select>
+                        <label>Parameters</label>
+                        <div id="editParametersContainer"></div>
+                        <div class="tag-hint">Each parameter in the program will have a corresponding tag dropdown above</div>
                     </div>
 
                     <div class="form-group">
@@ -578,6 +571,9 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             // Initialize empty tags for new task
             renderTags('editTagsContainer', []);
             updateTagSelect('editTagSelect', []);
+            
+            // Initialize parameter tags container
+            setupParameterTags(emptyTask);
             
             // Initialize variable stack display
             setTimeout(() => updateVariableStackDisplay(), 100);
@@ -976,7 +972,7 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                 }
 
                 if (data.status === 'success' && data.examples && data.examples.length > 0) {
-                    renderGridExamplesForProgram(data.examples);
+                    renderGridExamplesForProgram(data.examples, parameters);
                 } else {
                     const errorMsg = data.message || 'Failed to generate examples';
                     let errorHTML = `<div class="grid-error">
@@ -1004,7 +1000,7 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
         }
 
         // Render grid examples for program execution (targets programExamples div)
-        function renderGridExamplesForProgram(examples) {
+        function renderGridExamplesForProgram(examples, selectedParameterTags = []) {
             const examplesDiv = document.getElementById('programExamples');
             if (!examplesDiv) return;
 
@@ -1013,10 +1009,14 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                 return;
             }
 
-            // Extract parameter values from first example (should be same for all)
+            // Build parameter display HTML
             let parametersHTML = '';
-            if (examples[0].parameters && Object.keys(examples[0].parameters).length > 0) {
-                const paramPairs = Object.entries(examples[0].parameters)
+            const paramParts = [];
+            
+            // Show actual picked parameter values from server response (these are the actual values used)
+            // Parameters are stored in the first example only
+            if (examples[0].parameters && typeof examples[0].parameters === 'object' && Object.keys(examples[0].parameters).length > 0) {
+                const paramValuePairs = Object.entries(examples[0].parameters)
                     .sort((a, b) => {
                         // Sort by parameter number (param1, param2, etc.)
                         const numA = parseInt(a[0].replace('param', ''));
@@ -1024,9 +1024,33 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                         return numA - numB;
                     })
                     .map(([key, value]) => `<span style="margin-right: 15px;"><strong>${key}</strong> = ${value}</span>`);
+                paramParts.push(...paramValuePairs);
+            }
+            
+            // Also show selected parameter tags if available (for reference)
+            // Show these even if server didn't return picked values, so user knows what tags were selected
+            if (selectedParameterTags && selectedParameterTags.length > 0) {
+                const tagParts = [];
+                selectedParameterTags.forEach((tag, index) => {
+                    if (tag && tag.trim()) {
+                        const paramNum = index + 1;
+                        tagParts.push(`param${paramNum}: ${escapeHtml(tag)}`);
+                    }
+                });
+                if (tagParts.length > 0) {
+                    // If we already have picked values, show tags in parentheses; otherwise show them as main info
+                    if (paramParts.length > 0) {
+                        paramParts.push(`<span style="margin-left: 20px; color: #888;">(${tagParts.join(', ')})</span>`);
+                    } else {
+                        paramParts.push(`<span>${tagParts.join(', ')}</span>`);
+                    }
+                }
+            }
+            
+            if (paramParts.length > 0) {
                 parametersHTML = `
                     <div style="margin-bottom: 15px; padding: 10px; background: #002200; border: 1px solid #00aa00; font-size: 11px; color: #00aa00; font-family: 'Courier New', monospace;">
-                        <strong>Parameters:</strong> ${paramPairs.join('')}
+                        <strong>Parameters:</strong> ${paramParts.join('')}
                     </div>
                 `;
             }
@@ -1448,6 +1472,7 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                         <option value="fg_color">fg_color</option>
                         <option value="existing_color">existing_color</option>
                         <option value="margin">margin</option>
+                        <option value="small_delta">small_delta</option>
                     </select>
                 `;
                 container.appendChild(div);
