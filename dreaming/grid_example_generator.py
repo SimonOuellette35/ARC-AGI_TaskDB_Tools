@@ -38,6 +38,7 @@ def generate_grid_examples(instructions, num_examples=3, grid_categories=None, s
                    but param placeholders with 'fg_color' tag will be replaced with a random color (0-9) excluding bg_color.
                    If 'existing_color' tag is present, param placeholders will be replaced with a color that
                    exists in the input grid (randomly sampled from unique pixel values in the grid).
+                   If 'small_delta' tag is present, param placeholders will be replaced with a random choice from [-3, -2, -1, 0, 1, 2, 3].
                    All color-related parameters ('color', 'fg_color', 'existing_color') are mutually exclusive:
                    no color value will be reused across different parameters of these types.
         min_grid_dim: Minimum grid dimension for sample_by_category calls. If None, not passed.
@@ -93,7 +94,7 @@ def generate_grid_examples(instructions, num_examples=3, grid_categories=None, s
             debug_info = {}
             debug_info['task_name'] = task_name
 
-        input_grids_list, object_mask_list, instructions_to_execute, param_values = attempt_to_generate(
+        input_grids_list, object_mask_list, sub_object_mask_list, instructions_to_execute, param_values = attempt_to_generate(
             instructions, grid_categories, attributes, parameter_tags, sampler, parameter_values)
 
         # Normalize to lists
@@ -101,14 +102,19 @@ def generate_grid_examples(instructions, num_examples=3, grid_categories=None, s
             input_grids_list = [input_grids_list]
         if not isinstance(object_mask_list, list):
             object_mask_list = [object_mask_list]
+        if not isinstance(sub_object_mask_list, list):
+            sub_object_mask_list = [sub_object_mask_list]
         
-        # Ensure object_mask_list has the same length as input_grids_list
+        # Ensure object_mask_list and sub_object_mask_list have the same length as input_grids_list
         while len(object_mask_list) < len(input_grids_list):
             object_mask_list.append([])
+        while len(sub_object_mask_list) < len(input_grids_list):
+            sub_object_mask_list.append(None)
         
         # Execute program on all k grids
         all_valid, output_grids_list, error_traceback = execute_on_all_grids(
-            input_grids_list, object_mask_list, instructions_to_execute, catch_exceptions=catch_exceptions, debug_info=debug_info)
+            input_grids_list, object_mask_list, instructions_to_execute, catch_exceptions=catch_exceptions, debug_info=debug_info,
+            sub_object_mask_list=sub_object_mask_list)
         
         # Store the first execution error we encounter
         if not all_valid and error_traceback and first_execution_error is None:
@@ -375,20 +381,19 @@ def generate_grid(attributes, grid_categories, sampler=None):
     
     # Try to pass all parameters, fall back if not supported
     try:
-        input_grid, object_mask = sampler.sample_by_category(grid_categories, **sample_kwargs)
+        input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories, **sample_kwargs)
 
     except TypeError:
         # sample_by_category might not support some parameters
         # Fall back to sampling without optional parameters
         # Try with just grid_categories first
         try:
-            print("TypeError occurred")
-            input_grid, object_mask = sampler.sample_by_category(grid_categories)
+            input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories)
         except:
             print("except")
             # If that fails, try with just bg_color if specified
             if attributes['bg_color'] is not None:
-                input_grid, object_mask = sampler.sample_by_category(grid_categories, bg_color=attributes['bg_color'])
+                input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories, bg_color=attributes['bg_color'])
             else:
                 print("raising exception")
                 raise
@@ -396,7 +401,7 @@ def generate_grid(attributes, grid_categories, sampler=None):
     # Note: bg_color will still be used for parameter replacement in instructions
     input_grid_np = np.array(input_grid)
 
-    return input_grid_np, object_mask
+    return input_grid_np, object_mask, sub_obj_masks
 
 
 def _process_parameter_tags(parameter_tags, preset_parameter_values, sample_kwargs, attributes):
@@ -577,8 +582,12 @@ def _check_get_object(placeholder_instructions):
     get_bg_indices = []
     
     for idx, instr in enumerate(placeholder_instructions):
-        if len(instr) > 1:
-            prim_code = instr[1]
+        # Some instruction slots may be None or non-list placeholders; skip them safely
+        if not instr or not isinstance(instr, (list, np.ndarray)) or len(instr) <= 1:
+            continue
+        prim_code = instr[1]
+        # Only consider integer primitive codes
+        if isinstance(prim_code, (int, np.integer)):
             if prim_code == 15:  # get_objects
                 has_get_objects = True
                 get_objects_indices.append(idx)
@@ -586,38 +595,45 @@ def _check_get_object(placeholder_instructions):
                 has_get_bg = True
                 get_bg_indices.append(idx)
     
-    return has_get_objects, has_get_bg
+    return has_get_objects, has_get_bg, get_objects_indices
 
-def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_objects, has_get_bg):
-    input_grid_np, object_mask = generate_grid(attributes, categories_to_use, sampler)
-
-    object_mask_np = None
-    # Process object_mask if it's provided by generate_grid
-    if has_get_objects or has_get_bg:
-        # Convert object_mask to numpy array and ensure it's 2D
-        grid_height, grid_width = input_grid_np.shape[:2]
-        
-        if object_mask is None:
-            # If object_mask is None but we need it, create a default mask (all zeros)
-            object_mask_np = np.zeros((grid_height, grid_width), dtype=np.int32)
-        elif isinstance(object_mask, np.ndarray):
-            object_mask_np = object_mask.copy()
+def _to_mask_np(mask, grid_height, grid_width):
+    """Convert mask to 2D numpy array matching grid shape."""
+    if mask is None:
+        return np.zeros((grid_height, grid_width), dtype=np.int32)
+    if isinstance(mask, np.ndarray):
+        mask_np = mask.copy()
+    else:
+        mask_np = np.array(mask, dtype=np.int32)
+    if mask_np.ndim != 2:
+        if mask_np.size == grid_height * grid_width:
+            mask_np = mask_np.reshape(grid_height, grid_width)
         else:
-            object_mask_np = np.array(object_mask, dtype=np.int32)
-        
-        # Ensure the mask is 2D and matches the grid shape
-        if object_mask_np.ndim != 2:
-            if object_mask_np.size == grid_height * grid_width:
-                object_mask_np = object_mask_np.reshape(grid_height, grid_width)
-            else:
-                raise ValueError(f"object_mask size {object_mask_np.size} (shape {object_mask_np.shape}) doesn't match grid size {grid_height * grid_width}")
-        elif object_mask_np.shape != (grid_height, grid_width):
-            if object_mask_np.size == grid_height * grid_width:
-                object_mask_np = object_mask_np.reshape(grid_height, grid_width)
-            else:
-                raise ValueError(f"object_mask shape {object_mask_np.shape} doesn't match grid shape ({grid_height}, {grid_width})")
+            raise ValueError(f"mask size {mask_np.size} doesn't match grid size {grid_height * grid_width}")
+    elif mask_np.shape != (grid_height, grid_width):
+        if mask_np.size == grid_height * grid_width:
+            mask_np = mask_np.reshape(grid_height, grid_width)
+        else:
+            raise ValueError(f"mask shape {mask_np.shape} doesn't match grid shape ({grid_height}, {grid_width})")
+    return mask_np
 
-    return input_grid_np, object_mask_np
+def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_objects, has_get_bg, has_second_get_objects=False):
+    input_grid_np, object_mask, sub_obj_masks = generate_grid(attributes, categories_to_use, sampler)
+    grid_height, grid_width = input_grid_np.shape[:2]
+
+    # For the first get_objects / get_bg call we use a single object mask aligned with the grid.
+    object_mask_np = None
+    if has_get_objects or has_get_bg:
+        object_mask_np = _to_mask_np(object_mask, grid_height, grid_width)
+
+    # For a second get_objects call we want to preserve the structure returned by the sampler.
+    # Typically this is a list of sub-object masks, one per object from the first get_objects call.
+    # The interpreter knows how to consume this structure, so we pass it through unchanged.
+    sub_obj_masks_out = None
+    if has_second_get_objects and sub_obj_masks is not None:
+        sub_obj_masks_out = sub_obj_masks
+
+    return input_grid_np, object_mask_np, sub_obj_masks_out
 
 def attempt_to_generate(placeholder_instructions, grid_categories, attributes, parameter_tags, sampler=None, preset_parameter_values=None):
     # If bg_color or fg_color parameter is specified, randomly select bg_color for this example
@@ -638,12 +654,14 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
         # replace_parameter_placeholders will handle copying if needed
         instructions_to_execute = replace_parameter_placeholders(placeholder_instructions, param_values)
 
-        # Return all k=3 grids and empty object_masks list
+        # Return all k=3 grids and empty object_masks list (no sub_object_masks for basic)
         object_masks = [[] for _ in range(len(grids) if isinstance(grids, list) else 1)]
+        sub_object_masks_list = [None] * (len(grids) if isinstance(grids, list) else 1)
 
-        return grids, object_masks, instructions_to_execute, param_values
+        return grids, object_masks, sub_object_masks_list, instructions_to_execute, param_values
     else:
-        has_get_objects, has_get_bg = _check_get_object(placeholder_instructions)
+        has_get_objects, has_get_bg, get_objects_indices = _check_get_object(placeholder_instructions)
+        has_second_get_objects = len(get_objects_indices) >= 2
 
         # For object completion tasks (has_get_objects), use the same grid_category for all k examples
         categories_to_use = grid_categories
@@ -656,12 +674,15 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
         k = 3
         grids = []
         object_masks = []
+        sub_object_masks_list = []
         
         for _ in range(k):
-            tmp_grids, tmp_object_masks = _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_objects, has_get_bg)
-            
+            tmp_grids, tmp_object_masks, tmp_sub_obj_masks = _generate_grid_inner_loop(
+                attributes, categories_to_use, sampler, has_get_objects, has_get_bg, has_second_get_objects
+            )
             grids.append(tmp_grids)
             object_masks.append(tmp_object_masks)
+            sub_object_masks_list.append(tmp_sub_obj_masks)
 
         # Replace parameter placeholders with actual values for this example
         # Extract unique colors from the input grid for existing_color parameters
@@ -723,25 +744,25 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
             for i, tag in enumerate(parameter_tags):
                 if tag == 'margin' and i not in param_values:
                     param_values[i] = np.random.randint(1, 6)  # Random margin value 1-5
+                elif tag == 'small_delta' and i not in param_values:
+                    param_values[i] = int(np.random.choice([-3, -2, -1, 0, 1, 2, 3]))
         
         # Pass the list of tags and the values dict
         instructions_to_execute = replace_parameter_placeholders(placeholder_instructions, param_values)
 
-        # Return all k=3 grids and object_masks
-        # Return grids (list of k=3 grids) as input_grid_np, and object_masks (list of k=3 object_masks)
-        # Also return bg_masks if they were created
-        return grids, object_masks, instructions_to_execute, param_values
+        # Return all k=3 grids, object_masks, and sub_object_masks (for second get_objects when present)
+        return grids, object_masks, sub_object_masks_list, instructions_to_execute, param_values
 
 
-def execute_program(input_grid_np, instructions, initial_state, catch_exceptions=True, object_mask=None, debug_info=None):
-    
-    # Execute program
-    # Convert object_mask to list format (pi.execute now expects a list of k object masks)
+def execute_program(input_grid_np, instructions, initial_state, catch_exceptions=True, object_mask=None, debug_info=None, sub_object_mask=None):
+    # Convert object_mask to list format (pi.execute expects a list of k object masks)
     object_mask_list = [object_mask] if object_mask is not None else [None]
-    
+    # For second get_objects call, pass sub_obj_masks when present
+    sub_object_mask_list = [sub_object_mask] if sub_object_mask is not None else None
+
     if catch_exceptions:
         try:
-            output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask_list, debug_info)
+            output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask_list, debug_info, sub_object_mask_list=sub_object_mask_list)
             if output_grids_dsl and len(output_grids_dsl) > 0:
                 output_grid_np = output_grids_dsl[0].cells_as_numpy()
                 
@@ -769,7 +790,7 @@ def execute_program(input_grid_np, instructions, initial_state, catch_exceptions
 
         return True, output_grid_np, None
     else:
-        output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask_list, debug_info)
+        output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask_list, debug_info, sub_object_mask_list=sub_object_mask_list)
         if output_grids_dsl and len(output_grids_dsl) > 0:
             output_grid_np = output_grids_dsl[0].cells_as_numpy()
 
@@ -844,31 +865,30 @@ def create_initial_state_for_grid(input_grid_np):
     # The interpreter will execute these instructions with the object_mask
     return initial_state
 
-def execute_on_all_grids(input_grids_list, object_mask_list, instructions_to_execute, catch_exceptions=True, debug_info=None):
+def execute_on_all_grids(input_grids_list, object_mask_list, instructions_to_execute, catch_exceptions=True, debug_info=None, sub_object_mask_list=None):
     """Execute program on all k input grids.
     
     Args:
         input_grids_list: List of k input grids
         object_mask_list: List of k object masks
         instructions_to_execute: Instructions to execute
-        bg_mask: Optional background mask (single mask or list of masks, one per grid)
+        sub_object_mask_list: Optional list of k sub-object masks (used for second get_objects call when present)
     
     Returns:
         Tuple of (all_valid, output_grids_list, error_traceback)
     """
     output_grids_list = []
-    
-    # Handle bg_mask: if it's a single mask, use it for all grids; if it's a list, use corresponding mask
-    for input_grid_np, object_mask in zip(input_grids_list, object_mask_list):
+    if sub_object_mask_list is None:
+        sub_object_mask_list = [None] * len(input_grids_list)
+    for input_grid_np, object_mask, sub_object_mask in zip(input_grids_list, object_mask_list, sub_object_mask_list):
         initial_state = create_initial_state_for_grid(input_grid_np)
-        
-        valid_task, output_grid_np, error_traceback = execute_program(input_grid_np, instructions_to_execute, initial_state, catch_exceptions, object_mask, debug_info)
-        
+        valid_task, output_grid_np, error_traceback = execute_program(
+            input_grid_np, instructions_to_execute, initial_state, catch_exceptions, object_mask, debug_info, sub_object_mask=sub_object_mask
+        )
         if valid_task:
             output_grids_list.append(output_grid_np)
         else:
             return False, [], error_traceback
-    
     return True, output_grids_list, None
 
 

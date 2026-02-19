@@ -227,36 +227,12 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
                 # Normalize program format for tasks with program field
                 for i, task in enumerate(data):
                     if 'program' in task and task.get('program'):
-                        # Check if it's a new task (source is 'Manual' and no instructions yet)
-                        is_new_task = (task.get('source') == 'Manual' and 
-                                     ('instructions' not in task or not task.get('instructions')))
-                        if is_new_task:
-                            # Normalize program format to ensure it starts with "[\n" and ends with "\n]"
-                            original_program = task['program']
-                            normalized_program = normalize_program_format(original_program)
-                            if normalized_program != original_program:
-                                task['program'] = normalized_program
-                                print(f"[SAVE] Normalized program format for task '{task.get('name', 'Unknown')}' at index {i}")
-                
-                # Generate instructions from program for tasks that have a program
-                # Always regenerate instructions when program is present, even if instructions already exist
-                N = len(DSL.semantics)
-                for i, task in enumerate(data):
-                    if 'program' in task and task['program']:
-                        try:
-                            program_str = task['program']
-                            # Parse program string to hand-written format
-                            program_hand_written = block_of_text_to_program_lines(program_str)
-                            # Convert to instructions
-                            instructions = ProgUtils.convert_user_format_to_token_seq(program_hand_written)
-                            task['instructions'] = instructions
-                            print(f"[SAVE] Regenerated instructions for task '{task.get('name', 'Unknown')}' at index {i}")
-                        except Exception as e:
-                            import traceback
-                            error_trace = traceback.format_exc()
-                            print(f"[SAVE] Warning: Could not generate instructions for task '{task.get('name', 'Unknown')}' at index {i}: {e}")
-                            print(f"[SAVE] Traceback: {error_trace}")
-                            # Continue without instructions - task will be saved without them
+                        # Normalize program format to ensure it starts with "[\n" and ends with "\n]"
+                        original_program = task['program']
+                        normalized_program = normalize_program_format(original_program)
+                        if normalized_program != original_program:
+                            task['program'] = normalized_program
+                            print(f"[SAVE] Normalized program format for task '{task.get('name', 'Unknown')}' at index {i}")
                 
                 # Backup existing file before writing
                 backup_path = str(TASK_DB_PATH) + '.backup'
@@ -340,10 +316,22 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
                 raise ValueError(f"Invalid task index: {task_index} (valid range: 0-{len(tasks)-1})")
 
             task = tasks[task_index]
-            instructions = task.get('instructions', [])
+            program_str = task.get('program', '')
+            
+            if not program_str:
+                raise ValueError("Task has no program")
+
+            # Generate instructions from program
+            try:
+                program_lines = block_of_text_to_program_lines(program_str)
+                instructions = ProgUtils.convert_user_format_to_token_seq(program_lines)
+            except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
+                raise ValueError(f"Failed to parse program: {e}\n{error_trace}")
 
             if not instructions:
-                raise ValueError("Task has no instructions")
+                raise ValueError("Program parsed to empty instructions")
             
             # Validate instructions format
             if not isinstance(instructions, list):
@@ -358,7 +346,6 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
 
             # Extract parameters from task - new format: list of tags
             # Count parameters in program to determine how many tags we need
-            program_str = task.get('program', '')
             num_parameters = count_parameters_in_program(program_str)
             
             task_params = task.get('parameters') or task.get('parameter')

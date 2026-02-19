@@ -6,9 +6,12 @@ from AmotizedDSL.prog_utils import ProgUtils
 def test_compare_two_tasks():
 
     def run_test(ex_task1, ex_task2):
+        prog1 = block_of_text_to_program_lines(ex_task1['program'])
+        instructions = ProgUtils.convert_user_format_to_token_seq(prog1)
+
         # Generate examples
         examples = generate_grid_examples(
-            ex_task1['instructions'],
+            instructions,
             num_examples=25,
             grid_categories=ex_task1['grid_categories'],
             strict=False,
@@ -29,16 +32,6 @@ def test_compare_two_tasks():
     task1 = {
         "name": "Draw Arbitrary Points Upper Left V4",
         "program": "[\n  set_pixels(N+0, 0, 0, \"param1\"),\n  del(N+0),\n  set_pixels(N+0, 2, 0, \"param2\"),\n  del(N+0),\n  set_pixels(N+0, 0, 2, \"param2\"),\n  del(N+0),\n  set_pixels(N+0, 2, 2, \"param1\"),\n  del(N+0)\n]",
-        "instructions": [
-            [0, 38, 1, 61, 2, 4, 2, 4, 2, "param1", 3],
-            [0, 51, 1, 61, 3],
-            [0, 38, 1, 61, 2, 6, 2, 4, 2, "param2", 3],
-            [0, 51, 1, 61, 3],
-            [0, 38, 1, 61, 2, 4, 2, 6, 2, "param2", 3],
-            [0, 51, 1, 61, 3],
-            [0, 38, 1, 61, 2, 6, 2, 6, 2, "param1", 3],
-            [0, 51, 1, 61, 3]
-        ],
         "comments": [],
         "curriculum_level": 0,
         "source": "Auto",
@@ -60,14 +53,6 @@ def test_compare_two_tasks():
     task2 = {
         "name": "Shift Down + Draw Upper Border",
         "program": "[\n  sub(0, 1),\n  set_pixels(N+0, N+1, N+1, \"param1\"),\n  del(N+0),\n  set_pixels(N+1, N+1.x, N+0, \"param1\"),\n  del(N+1),\n  del(N+0)\n]",
-        "instructions": [
-            [0, 25, 1, 4, 2, 5, 3],
-            [0, 38, 1, 61, 2, 62, 2, 62, 2, "param1", 3],
-            [0, 51, 1, 61, 3],
-            [0, 38, 1, 62, 2, 62, 52, 2, 61, 2, "param1", 3],
-            [0, 51, 1, 62, 3],
-            [0, 51, 1, 61, 3]
-        ],
         "comments": [],
         "curriculum_level": 1,
         "source": "Auto",
@@ -94,24 +79,6 @@ def test_compare_two_tasks():
 
     task1 = {
         "program": "[\n  add(N+0.x, 1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, 0, N+0.y, 0),\n  del(N+0),\n  crop(N+0, 0, 0, N+0.max_x, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  equal(N+0.c, param2),\n  switch(N+1, N+2, param2, param1, N+0.c),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 24, 1, 61, 52, 2, 5, 3],
-        [0, 38, 1, 61, 2, 62, 2, 61, 53, 2, 61, 54, 3],
-        [0, 51, 1, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 38, 1, 61, 2, 4, 2, 61, 53, 2, 4, 3],
-        [0, 51, 1, 61, 3],
-        [0, 36, 1, 61, 2, 4, 2, 4, 2, 61, 55, 2, 61, 58, 3],
-        [0, 51, 1, 61, 3],
-        [0, 18, 1, 61, 54, 2, "param1", 3],
-        [0, 18, 1, 61, 54, 2, "param2", 3],
-        [0, 21, 1, 62, 2, 63, 2, "param2", 2, "param1", 2, 61, 54, 3],
-        [0, 51, 1, 62, 3],
-        [0, 51, 1, 62, 3],
-        [0, 38, 1, 61, 2, 61, 52, 2, 61, 53, 2, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "x + 1",
         "Grid",
@@ -147,22 +114,6 @@ def test_compare_two_tasks():
 
     task2 = {
         "program": "[\n  sub(N+0.y, 1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+1),\n  del(N+0),\n  set_pixels(N+0, N+0.x, N+0.max_y, 0),\n  del(N+0),\n  crop(N+0, 0, 1, N+0.width, N+0.height),\n  del(N+0),\n  equal(N+0.c, param1),\n  switch(N+1, param1, param2),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 25, 1, 61, 53, 2, 5, 3],
-        [0, 38, 1, 61, 2, 61, 52, 2, 62, 2, 61, 54, 3],
-        [0, 51, 1, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 38, 1, 61, 2, 61, 52, 2, 61, 56, 2, 4, 3],
-        [0, 51, 1, 61, 3],
-        [0, 36, 1, 61, 2, 4, 2, 5, 2, 61, 57, 2, 61, 58, 3],
-        [0, 51, 1, 61, 3],
-        [0, 18, 1, 61, 54, 2, "param1", 3],
-        [0, 21, 1, 62, 2, "param1", 2, "param2", 3],
-        [0, 51, 1, 62, 3],
-        [0, 38, 1, 61, 2, 61, 52, 2, 61, 53, 2, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "y - 1",
         "Grid",
@@ -201,12 +152,6 @@ def test_compare_two_tasks():
 
     task1 = {
         "program": "[\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 24, 1, 61, 57, 2, 61, 52, 3],
-        [0, 38, 1, 61, 2, 62, 2, 61, 53, 2, 61, 54, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "Add grid width to its x values",
         "Grid",
@@ -227,12 +172,6 @@ def test_compare_two_tasks():
 
     task2 = {
         "program": "[\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 24, 1, 61, 58, 2, 61, 53, 3],
-        [0, 38, 1, 61, 2, 61, 52, 2, 62, 2, 61, 54, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "Add grid height to its y values",
         "Grid",
@@ -259,12 +198,6 @@ def test_compare_two_tasks():
     task1 = {
         "name": "Draw Diagonal",
         "program": "[\n  and(N+0.max_y, N+0.x),\n  set_pixels(N+0, N+0.x, N+1, param1),\n  del(N+0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 32, 1, 61, 56, 2, 61, 52, 3],
-        [0, 38, 1, 61, 2, 61, 52, 2, 62, 2, "param1", 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "grid height / 2",
         "Grid",
@@ -308,9 +241,6 @@ def test_compare_two_tasks():
         "validated": True
     }
     
-    prog2 = block_of_text_to_program_lines(task2['program'])
-    task2['instructions'] = ProgUtils.convert_user_format_to_token_seq(prog2)
-
     is_same = run_test(task1, task2)
 
     assert is_same is True
@@ -318,12 +248,6 @@ def test_compare_two_tasks():
     # Example #5: two identical tasks (but slightly different code)
     task1 =   {
         "program": "[\n  get_objects(N+0),\n  del(N+0),\n  index(N+0, 0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 15, 1, 61, 3],
-        [0, 51, 1, 61, 3],
-        [0, 22, 1, 61, 2, 4, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "list of objects",
         "",
@@ -367,9 +291,6 @@ def test_compare_two_tasks():
         "validated": True
     }
 
-    prog2 = block_of_text_to_program_lines(task2['program'])
-    task2['instructions'] = ProgUtils.convert_user_format_to_token_seq(prog2)
-
     is_same = run_test(task1, task2)
 
     assert is_same is True
@@ -377,18 +298,6 @@ def test_compare_two_tasks():
     # Example #6: two identical tasks (but slightly different code)
     task1 =   {
         "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+2),\n  del(N+0),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 15, 1, 61, 3],
-        [0, 16, 1, 61, 3],
-        [0, 51, 1, 61, 3],
-        [0, 25, 1, 61, 55, 2, 61, 52, 3],
-        [0, 39, 1, 61, 2, 63, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 62, 3],
-        [0, 48, 1, 61, 2, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "list of objects",
         "grid background",
@@ -415,18 +324,6 @@ def test_compare_two_tasks():
 
     task2 =   {
         "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+2),\n  set_y(N+0, N+0.y),\n  del(N+0),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+2),\n  del(N+0),\n  del(N+0)\n]",
-        "instructions": [
-        [0, 15, 1, 61, 3],
-        [0, 16, 1, 61, 3],
-        [0, 51, 1, 61, 3],
-        [0, 25, 1, 61, 55, 2, 61, 52, 3],
-        [0, 39, 1, 61, 2, 63, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 62, 3],
-        [0, 48, 1, 61, 2, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
-        ],
         "comments": [
         "list of objects",
         "grid background",
@@ -450,9 +347,6 @@ def test_compare_two_tasks():
         "max_grid_dim": 30,
         "validated": True
     }
-
-    prog2 = block_of_text_to_program_lines(task2['program'])
-    task2['instructions'] = ProgUtils.convert_user_format_to_token_seq(prog2)
 
     is_same = run_test(task1, task2)
 
