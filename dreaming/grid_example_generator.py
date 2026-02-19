@@ -537,8 +537,6 @@ def generate_basic(attributes, parameter_tags, sampler=None, k=3, preset_paramet
         for i, tag in enumerate(parameter_tags):
             if tag == 'margin' and i not in param_values:
                 param_values[i] = np.random.randint(1, 6)  # Random margin value 1-5
-            elif tag == 'small_delta' and i not in param_values:
-                param_values[i] = int(np.random.choice([-3, -2, -1, 0, 1, 2, 3]))
 
     # Return all 3 input grids, but for backward compatibility keep older return signature too
     return grids, param_values # No bg_mask for basic grids

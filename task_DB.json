@@ -9915,8 +9915,8 @@
     "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_y),\n del(N+1),\n gather(N+1, 0),\n add(N+2.x, param1),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n add(N+2.x, param2),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
     "comments": [],
     "parameters": [
-      "small_delta",
-      "small_delta"
+      "margin",
+      "margin"
     ],
     "grid_categories": [
       "twin_objects_v"
@@ -9932,8 +9932,8 @@
     "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_x),\n del(N+1),\n gather(N+1, 0),\n add(N+2.y, param1),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n add(N+2.y, param2),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
     "comments": [],
     "parameters": [
-      "small_delta",
-      "small_delta"
+      "margin",
+      "margin"
     ],
     "grid_categories": [
       "twin_objects_h"
@@ -9942,5 +9942,107 @@
     "validated": true,
     "min_grid_dim": 10,
     "max_grid_dim": 30
-  }
+  },
+  {
+    "name": "Object Relative Translate H (subtract)",
+    "curriculum_level": 0,
+    "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_y),\n del(N+1),\n gather(N+1, 0),\n sub(N+2.x, param1),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n sub(N+2.x, param2),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "margin",
+      "margin"
+    ],
+    "grid_categories": [
+      "twin_objects_v"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Relative Translate V (subtract)",
+    "curriculum_level": 0,
+    "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_x),\n del(N+1),\n gather(N+1, 0),\n sub(N+2.y, param1),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n sub(N+2.y, param2),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "margin",
+      "margin"
+    ],
+    "grid_categories": [
+      "twin_objects_h"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Relative Translate H (-/+)",
+    "curriculum_level": 0,
+    "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_y),\n del(N+1),\n gather(N+1, 0),\n sub(N+2.x, param1),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n add(N+2.x, param2),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "margin",
+      "margin"
+    ],
+    "grid_categories": [
+      "twin_objects_v"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Relative Translate V (-/+)",
+    "curriculum_level": 0,
+    "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_x),\n del(N+1),\n gather(N+1, 0),\n sub(N+2.y, param1),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n add(N+2.y, param2),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "margin",
+      "margin"
+    ],
+    "grid_categories": [
+      "twin_objects_h"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Relative Translate H (+/-)",
+    "curriculum_level": 0,
+    "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_y),\n del(N+1),\n gather(N+1, 0),\n add(N+2.x, param1),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n sub(N+2.x, param2),\n set_x(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "margin",
+      "margin"
+    ],
+    "grid_categories": [
+      "twin_objects_v"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Relative Translate V (+/-)",
+    "curriculum_level": 0,
+    "program": "[\n get_objects(N+0),\n get_bg(N+0),\n del(N+0),\n get_objects(N+0),\n del(N+0),\n sort_by(N+1, N+1.ul_x),\n del(N+1),\n gather(N+1, 0),\n add(N+2.y, param1),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n gather(N+1, 1),\n del(N+1),\n sub(N+2.y, param2),\n set_y(N+2, N+3),\n del(N+2),\n del(N+2),\n rebuild_grid(N+0, N+1),\n del(N+0),\n del(N+0),\n rebuild_grid(N+1, N+0),\n del(N+0),\n del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "margin",
+      "margin"
+    ],
+    "grid_categories": [
+      "twin_objects_h"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  }      
 ]
