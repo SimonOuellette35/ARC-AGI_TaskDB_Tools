@@ -388,7 +388,6 @@ def generate_grid(attributes, grid_categories, sampler=None):
         # Fall back to sampling without optional parameters
         # Try with just grid_categories first
         try:
-            print("TypeError occurred")
             input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories)
         except:
             print("except")
