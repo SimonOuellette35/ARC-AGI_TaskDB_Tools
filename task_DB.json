@@ -10044,5 +10044,33 @@
     "validated": true,
     "min_grid_dim": 10,
     "max_grid_dim": 30
-  }      
+  },
+  {
+    "name": "Object Crop Max Sub-objects",
+    "curriculum_level": 0,
+    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  get_objects(N+0),\n  count_items(N+1),\n  del(N+1),\n  arg_max(N+1),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "max_inner_objs"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Min Sub-objects",
+    "curriculum_level": 0,
+    "program": "[\nget_objects(N+0),\n  del(N+0),\n  get_objects(N+0),\n  count_items(N+1),\n  del(N+1),\n  arg_min(N+1),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "min_inner_objs"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  }
 ]
