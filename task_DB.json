@@ -10072,5 +10072,75 @@
     "validated": true,
     "min_grid_dim": 10,
     "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Odd-one-out by Color",
+    "curriculum_level": 1,
+    "program": "[\nget_objects(N+0),\ndel(N+0),\nindex(N+0.c, 0),\ncount_values(N+1, N+1),\narg_min(N+2),\ndel(N+2),\ndel(N+1),\nindex(N+0, N+1),\ndel(N+0),\ndel(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_color"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Odd-one-out by Height",
+    "curriculum_level": 1,
+    "program": "[\nget_objects(N+0),\ndel(N+0),\ncount_values(N+0.height, N+0.height),\narg_min(N+1),\ndel(N+1),\nindex(N+0, N+1),\ndel(N+0),\ndel(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_height"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Odd-one-out by Width",
+    "curriculum_level": 1,
+    "program": "[\nget_objects(N+0),\n  del(N+0),\n  count_values(N+0.width, N+0.width),\n  arg_min(N+1),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_width"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Odd-one-out by Size",
+    "curriculum_level": 1,
+    "program": "[\nget_objects(N+0)\n  del(N+0)\n  count_items(N+0.c)\n  count_values(N+1, N+1)\n  arg_min(N+2)\n  del(N+2)\n  del(N+1)\n  index(N+0, N+1)\n  del(N+0)\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_size"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Odd-one-out by Sub-object Count",
+    "curriculum_level": 1,
+    "program": "[\nget_objects(N+0),\n  del(N+0),\n  get_objects(N+0),\n  count_items(N+1),\n  del(N+1),\n  count_values(N+1, N+1),\n  del(N+1),\n  arg_min(N+1),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_subobj_count"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
   }
 ]
