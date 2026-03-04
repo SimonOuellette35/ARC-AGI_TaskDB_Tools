@@ -10142,5 +10142,35 @@
     "validated": true,
     "min_grid_dim": 10,
     "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Odd-one-out Sym H",
+    "curriculum_level": 1,
+    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+1),\n  del(N+1),\n  equal(N+0, N+1),\n  del(N+1),\n  count_values(N+1, N+1),\n  arg_min(N+2),\n  del(N+2),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_non_sym_h",
+      "odd_one_out_sym_h"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Crop Odd-one-out Sym V",
+    "curriculum_level": 1,
+    "program": "[\nget_objects(N+0),\n  del(N+0),\n  sub(N+0.max_y, N+0.y),\n  set_y(N+0, N+1),\n  del(N+1),\n  equal(N+0, N+1),\n  del(N+1),\n  count_values(N+1, N+1),\n  arg_min(N+2),\n  del(N+2),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0),\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_non_sym_v",
+      "odd_one_out_sym_v"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
   }
 ]
