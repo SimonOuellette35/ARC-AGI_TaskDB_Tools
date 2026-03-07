@@ -10146,7 +10146,7 @@
   {
     "name": "Object Crop Odd-one-out Sym H",
     "curriculum_level": 1,
-    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+1),\n  del(N+1),\n  equal(N+0, N+1),\n  del(N+1),\n  count_values(N+1, N+1),\n  arg_min(N+2),\n  del(N+2),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+1),\n  del(N+1),\n  equal(N+0, N+1),\n  del(N+1),\n  count_values(N+1, N+1),\n  del(N+1),\n  arg_min(N+1),\n  del(N+1),\n  index(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10246,7 +10246,7 @@
   {
     "name": "Object Filter Odd-one-out Sym H",
     "curriculum_level": 1,
-    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  sub(N+1.max_x, N+1.x),\n  set_x(N+1, N+2),\n  del(N+2),\n  equal(N+1, N+2),\n  del(N+2),\n  count_values(N+2, N+2),\n  arg_min(N+2),\n  del(N+3),\n  index(N+1, N+3),\n  del(N+2),\n  del(N+2),\n  set_difference(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  sub(N+1.max_x, N+1.x),\n  set_x(N+1, N+2),\n  del(N+2),\n  equal(N+1, N+2),\n  del(N+2),\n  count_values(N+2, N+2),\n  del(N+2),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  set_difference(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10261,7 +10261,107 @@
   {
     "name": "Object Filter Odd-one-out Sym V",
     "curriculum_level": 1,
-    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  sub(N+1.max_y, N+1.y),\n  set_y(N+1, N+2),\n  del(N+2),\n  equal(N+1, N+2),\n  del(N+2),\n  count_values(N+2, N+2),\n  arg_min(N+2),\n  del(N+3),\n  index(N+1, N+3),\n  del(N+2),\n  del(N+2),\n  set_difference(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  sub(N+1.max_y, N+1.y),\n  set_y(N+1, N+2),\n  del(N+2),\n  equal(N+1, N+2),\n  del(N+2),\n  count_values(N+2, N+2),\n  del(N+2),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  set_difference(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_non_sym_v",
+      "odd_one_out_sym_v"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Keep Odd-one-out by Color",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  index(N+1.c, 0),\n  count_values(N+2, N+2),\n  del(N+2),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_color"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Keep Odd-one-out by Height",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  count_values(N+1.height, N+1.height),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_height"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Keep Odd-one-out by Width",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  count_values(N+1.width, N+1.width),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_width"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Keep Odd-one-out by Size",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  count_items(N+1.c),\n  count_values(N+2, N+2),\n  del(N+2),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_size"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Keep Odd-one-out by Sub-object Count",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  get_objects(N+1),\n  count_items(N+2),\n  del(N+2),\n  count_values(N+2, N+2),\n  del(N+2),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_subobj_count"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Keep Odd-one-out Sym H",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  sub(N+1.max_x, N+1.x),\n  set_x(N+1, N+2),\n  del(N+2),\n  equal(N+1, N+2),\n  del(N+2),\n  count_values(N+2, N+2),\n  del(N+2),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_non_sym_h",
+      "odd_one_out_sym_h"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Keep Odd-one-out Sym V",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  sub(N+1.max_y, N+1.y),\n  set_y(N+1, N+2),\n  del(N+2),\n  equal(N+1, N+2),\n  del(N+2),\n  count_values(N+2, N+2),\n  del(N+2),\n  arg_min(N+2),\n  del(N+2),\n  index(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0),\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
