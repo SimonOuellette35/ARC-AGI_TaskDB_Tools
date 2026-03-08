@@ -10372,5 +10372,33 @@
     "validated": true,
     "min_grid_dim": 10,
     "max_grid_dim": 30
+  },
+  {
+    "name": "Object Filter Odd Sub-object Counts",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  get_objects(N+1),\n  count_items(N+2),\n  del(N+2),\n  mod(N+2, 2),\n  equal(N+3, 0),\n  del(N+2),\n  del(N+2),\n  keep(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_subobj_count"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Object Filter Even Sub-object Counts",
+    "curriculum_level": 1,
+    "program": "[\n  get_bg(N+0),\n  get_objects(N+0),\n  del(N+0),\n  get_objects(N+1),\n  count_items(N+2),\n  del(N+2),\n  mod(N+2, 2),\n  equal(N+3, 0),\n  del(N+2),\n  del(N+2),\n  exclude(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [],
+    "grid_categories": [
+      "odd_one_out_subobj_count"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 10,
+    "max_grid_dim": 30
   }
 ]
