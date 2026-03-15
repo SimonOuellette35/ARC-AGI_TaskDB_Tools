@@ -153,27 +153,21 @@ def replace_parameter_placeholders(instructions, parameter_values=None):
     Returns:
         Instructions with parameter placeholders replaced by integer values
     """
-    # Check if we need to modify instructions (i.e., if there are parameters to replace)
-    # If no parameter_values provided, we still need to check if instructions contain param placeholders
-    needs_copy = False
-    if parameter_values and len(parameter_values) > 0:
-        needs_copy = True
-    else:
-        # Quick check: see if instructions contain any param placeholders
-        # Only do string conversion if we suspect there might be params
-        def has_param_placeholders(obj):
-            """Recursively check if object contains param placeholders."""
-            if isinstance(obj, str):
-                return obj.startswith("param") and len(obj) > 5 and obj[5:].isdigit()
-            elif isinstance(obj, list):
-                return any(has_param_placeholders(item) for item in obj)
-            return False
-        
-        needs_copy = has_param_placeholders(instructions)
-    
-    if needs_copy:
-        # Make a deep copy to avoid modifying the original
-        instructions = copy.deepcopy(instructions)
+    # Quick check: see if instructions contain any param placeholders
+    def has_param_placeholders(obj):
+        """Recursively check if object contains param placeholders."""
+        if isinstance(obj, str):
+            return obj.startswith("param") and len(obj) > 5 and obj[5:].isdigit()
+        elif isinstance(obj, list):
+            return any(has_param_placeholders(item) for item in obj)
+        return False
+
+    needs_replace = has_param_placeholders(instructions) or (parameter_values and len(parameter_values) > 0)
+    if not needs_replace:
+        return instructions
+
+    # Always deep copy before replacing so we never mutate the original (e.g. across UI retries)
+    instructions = copy.deepcopy(instructions)
     
     # Calculate parameter values       
     def replace_in_instruction(instruction):
@@ -214,8 +208,10 @@ def replace_parameter_placeholders(instructions, parameter_values=None):
                     
                     # If no explicit value, determine based on tag or use default
                     if replacement_value is None:
-                        # Get the tag for this parameter index
-                        replacement_value = np.random.randint(0, 10)
+                        replacement_value = int(np.random.randint(0, 10))
+                    else:
+                        # Ensure Python int (e.g. from numpy scalar) so token tuple / resolve_arg behave consistently
+                        replacement_value = int(replacement_value)
                     
                     # Encode the value by adding NUM_SPECIAL_TOKENS
                     encoded_value = replacement_value + ProgUtils.NUM_SPECIAL_TOKENS

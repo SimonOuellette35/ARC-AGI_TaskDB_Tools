@@ -68,6 +68,20 @@
             'max_count',
             'max_corner_objects',
             'max_inner_objs',
+            'merge_2h',
+            'merge_2v',
+            'merge_2x2',
+            'merge_3h',
+            'merge_3v',
+            'merge_4h',
+            'merge_4v',
+            'merge_2h_b',
+            'merge_2v_b',
+            'merge_2x2_b',
+            'merge_3h_b',
+            'merge_3v_b',
+            'merge_4h_b',
+            'merge_4v_b',
             'min_count',
             'min_corner_objects',
             'min_inner_objs',
@@ -430,14 +444,14 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                     </div>
 
                     <div class="form-group">
-                        <label for="editInputGridConstraints">Grid Categories (up to 5 tags)</label>
+                        <label for="editInputGridConstraints">Grid Categories (up to 15 tags)</label>
                         <div id="editTagsContainer" class="tags-container"></div>
                         <div class="tag-select-wrapper">
                             <select id="editTagSelect" class="tag-select" onchange="addTag('editTagsContainer', 'editTagSelect')">
                                 <option value="">Select a tag...</option>
                             </select>
                         </div>
-                        <div class="tag-hint">Select tags from the dropdown to add them (maximum 5 tags)</div>
+                        <div class="tag-hint">Select tags from the dropdown to add them (maximum 15 tags)</div>
                     </div>
 
                     <div class="detail-row">
@@ -550,14 +564,14 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
                     </div>
 
                     <div class="form-group">
-                        <label for="editInputGridConstraints">Grid Categories (up to 5 tags)</label>
+                        <label for="editInputGridConstraints">Grid Categories (up to 15 tags)</label>
                         <div id="editTagsContainer" class="tags-container"></div>
                         <div class="tag-select-wrapper">
                             <select id="editTagSelect" class="tag-select" onchange="addTag('editTagsContainer', 'editTagSelect')">
                                 <option value="">Select a tag...</option>
                             </select>
                         </div>
-                        <div class="tag-hint">Select tags from the dropdown to add them (maximum 5 tags)</div>
+                        <div class="tag-hint">Select tags from the dropdown to add them (maximum 15 tags)</div>
                     </div>
 
                     <div class="detail-row">
@@ -1333,8 +1347,8 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             const currentTags = Array.from(container.querySelectorAll('.tag-chip span:first-child'))
                 .map(span => span.textContent);
             
-            if (currentTags.length >= 5) {
-                showNotification('Maximum 5 tags allowed', 'error');
+            if (currentTags.length >= 15) {
+                showNotification('Maximum 15 tags allowed', 'error');
                 return;
             }
             
@@ -1387,7 +1401,7 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             }
             
             // Disable select if max tags reached
-            select.disabled = selectedTags.length >= 5;
+            select.disabled = selectedTags.length >= 15;
         }
 
         // Count parameters in program string (param1, param2, etc.)

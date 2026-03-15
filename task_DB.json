@@ -10400,5 +10400,105 @@
     "validated": true,
     "min_grid_dim": 10,
     "max_grid_dim": 30
+  },
+  {
+    "name": "Merge Pixels OR Logic",
+    "curriculum_level": 0,
+    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  not_equal(N+0.c, 'param1'),\n  index(N+0, 0),\n  del(N+0),\n  or(N+0),\n  del(N+0),\n  switch(N+1, 'param2', 'param1'),\n  del(N+1),\n  new_grid(N+0.width, N+0.height, 0),\n  del(N+0),\n  set_color(N+1, N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "bg_color",
+      "fg_color"
+    ],
+    "grid_categories": [
+      "merge_2h",
+      "merge_2v",
+      "merge_2x2",
+      "merge_3h",
+      "merge_3v",
+      "merge_4h",
+      "merge_4v",
+      "merge_2h_b",
+      "merge_2v_b",
+      "merge_2x2_b",
+      "merge_3h_b",
+      "merge_3v_b",
+      "merge_4h_b",
+      "merge_4v_b"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 3,
+    "max_grid_dim": 15
+  },
+  {
+    "name": "Merge Pixels AND Logic",
+    "curriculum_level": 0,
+    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  not_equal(N+0.c, 'param1'),\n  index(N+0, 0),\n  del(N+0),\n  and(N+0),\n  del(N+0),\n  switch(N+1, 'param2', 'param1'),\n  del(N+1),\n  new_grid(N+0.width, N+0.height, 0),\n  del(N+0),\n  set_color(N+1, N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "bg_color",
+      "fg_color"
+    ],
+    "grid_categories": [
+      "merge_2h",
+      "merge_2v",
+      "merge_2h_b",
+      "merge_2v_b"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 3,
+    "max_grid_dim": 15
+  },
+  {
+    "name": "Merge Pixels XOR Logic",
+    "curriculum_level": 0,
+    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  not_equal(N+0.c, 'param1'),\n  index(N+0, 0),\n  del(N+0),\n  xor(N+0),\n  del(N+0),\n  switch(N+1, 'param2', 'param1'),\n  del(N+1),\n  new_grid(N+0.width, N+0.height, 0),\n  del(N+0),\n  set_color(N+1, N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "bg_color",
+      "fg_color"
+    ],
+    "grid_categories": [
+      "merge_2h",
+      "merge_2v",
+      "merge_2h_b",
+      "merge_2v_b"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 3,
+    "max_grid_dim": 30
+  },
+  {
+    "name": "Merge Pixels NAND Logic",
+    "curriculum_level": 0,
+    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  equal(N+0.c, 'param1'),\n  index(N+0, 0),\n  del(N+0),\n  and(N+0),\n  del(N+0),\n  switch(N+1, 'param2', 'param1'),\n  del(N+1),\n  new_grid(N+0.width, N+0.height, 0),\n  del(N+0),\n  set_color(N+1, N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
+    "parameters": [
+      "bg_color",
+      "fg_color"
+    ],
+    "grid_categories": [
+      "merge_2h",
+      "merge_2v",
+      "merge_2x2",
+      "merge_3h",
+      "merge_3v",
+      "merge_4h",
+      "merge_4v",
+      "merge_2h_b",
+      "merge_2v_b",
+      "merge_2x2_b",
+      "merge_3h_b",
+      "merge_3v_b",
+      "merge_4h_b",
+      "merge_4v_b"
+    ],
+    "source": "Manual",
+    "validated": true,
+    "min_grid_dim": 3,
+    "max_grid_dim": 30
   }
 ]
