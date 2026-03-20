@@ -33,7 +33,12 @@ def main():
             print(f"Generating {trainN} training samples for curriculum level {args.curriculum_lvl}...")
         else:
             print(f"Generating {trainN} training samples per curriculum level...")
-        generator.generate(trainN, "training", args.curriculum_lvl, args.mixed_mode)
+        try:
+            generator.generate(trainN, "training", args.curriculum_lvl, args.mixed_mode)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            raise
 
     # Generate validation data
     if not args.skip_validation:
@@ -43,7 +48,12 @@ def main():
             print(f"Generating {valN} validation samples for curriculum level {args.curriculum_lvl}...")
         else:
             print(f"Generating {valN} validation samples per curriculum level...")
-        generator.generate(valN, "validation", args.curriculum_lvl, args.mixed_mode)
+        try:
+            generator.generate(valN, "validation", args.curriculum_lvl, args.mixed_mode)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            raise
 
 
 if __name__ == "__main__":

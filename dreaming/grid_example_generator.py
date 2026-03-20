@@ -17,6 +17,67 @@ from AmotizedDSL.prog_utils import ProgUtils
 
 # ============================================================================ Public method ===============================================================================
 
+def _parse_sampler_sample_output(result):
+    """
+    Parse ARC_gym sampler outputs for the basic grid path.
+
+    Historically `GridSampler.sample(...)` returned just `input_grid`.
+    Newer versions also return a `hint` value: `(input_grid, hint)`.
+    """
+    if not isinstance(result, (tuple, list)):
+        return result, ""
+
+    if len(result) == 1:
+        return result[0], ""
+
+    # Newer ARC_gym samplers may return additional values beyond `hint`,
+    # but the first element should always be the `input_grid`.
+    input_grid = result[0]
+    hint = ""
+
+    # Find the first string value in the tail; this is treated as `hint`.
+    for elem in result[1:]:
+        if isinstance(elem, str):
+            hint = elem
+            break
+        if isinstance(elem, dict) and "hint" in elem:
+            hint = elem.get("hint", "")
+            break
+
+    return input_grid, hint
+
+
+def _parse_sampler_sample_by_category_output(result):
+    """
+    Parse ARC_gym sampler outputs for the category-based grid path.
+
+    Historically `GridSampler.sample_by_category(...)` returned:
+      (input_grid, object_mask, sub_obj_masks)
+
+    Newer versions also return `hint`:
+      (input_grid, object_mask, sub_obj_masks, hint)
+    """
+    if not isinstance(result, (tuple, list)):
+        raise ValueError("Expected sampler.sample_by_category(...) to return a tuple/list")
+    if len(result) < 3:
+        raise ValueError("Unexpected sampler.sample_by_category(...) return value (too short)")
+
+    # Historically: (input_grid, object_mask, sub_obj_masks, hint?)
+    input_grid = result[0]
+    object_mask = result[1]
+    sub_obj_masks = result[2]
+
+    hint = ""
+    for elem in result[3:]:
+        if isinstance(elem, str):
+            hint = elem
+            break
+        if isinstance(elem, dict) and "hint" in elem:
+            hint = elem.get("hint", "")
+            break
+
+    return input_grid, object_mask, sub_obj_masks, hint
+
 def generate_grid_examples(instructions, num_examples=3, grid_categories=None, strict=True, parameters=None, min_grid_dim=None, max_grid_dim=None, 
                            parameter_values=None, catch_exceptions=True, task_name=None):
     """Generate input-output grid examples using the instructions.
@@ -94,12 +155,14 @@ def generate_grid_examples(instructions, num_examples=3, grid_categories=None, s
             debug_info = {}
             debug_info['task_name'] = task_name
 
-        input_grids_list, object_mask_list, sub_object_mask_list, instructions_to_execute, param_values = attempt_to_generate(
+        input_grids_list, object_mask_list, sub_object_mask_list, instructions_to_execute, param_values, hints_list = attempt_to_generate(
             instructions, grid_categories, attributes, parameter_tags, sampler, parameter_values)
 
         # Normalize to lists
         if not isinstance(input_grids_list, list):
             input_grids_list = [input_grids_list]
+        if not isinstance(hints_list, list):
+            hints_list = [hints_list]
         if not isinstance(object_mask_list, list):
             object_mask_list = [object_mask_list]
         if not isinstance(sub_object_mask_list, list):
@@ -110,6 +173,10 @@ def generate_grid_examples(instructions, num_examples=3, grid_categories=None, s
             object_mask_list.append([])
         while len(sub_object_mask_list) < len(input_grids_list):
             sub_object_mask_list.append(None)
+        if len(hints_list) == 1 and len(input_grids_list) > 1:
+            hints_list = hints_list * len(input_grids_list)
+        if len(hints_list) < len(input_grids_list):
+            raise ValueError("Sampler hints list length does not match generated grids length")
         
         # Execute program on all k grids
         all_valid, output_grids_list, error_traceback = execute_on_all_grids(
@@ -122,7 +189,9 @@ def generate_grid_examples(instructions, num_examples=3, grid_categories=None, s
         
         # Create examples if all grids executed successfully
         if all_valid and len(output_grids_list) == len(input_grids_list):
-            new_examples = create_examples_from_grids(input_grids_list, output_grids_list, object_mask_list, param_values)
+            new_examples = create_examples_from_grids(
+                input_grids_list, output_grids_list, object_mask_list, param_values, hints_list=hints_list
+            )
             examples.extend(new_examples)
 
     if len(examples) < num_examples:
@@ -377,19 +446,22 @@ def generate_grid(attributes, grid_categories, sampler=None):
     
     # Try to pass all parameters, fall back if not supported
     try:
-        input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories, **sample_kwargs)
+        result = sampler.sample_by_category(grid_categories, **sample_kwargs)
+        input_grid, object_mask, sub_obj_masks, hint = _parse_sampler_sample_by_category_output(result)
 
     except TypeError:
         # sample_by_category might not support some parameters
         # Fall back to sampling without optional parameters
         # Try with just grid_categories first
         try:
-            input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories)
+            result = sampler.sample_by_category(grid_categories)
+            input_grid, object_mask, sub_obj_masks, hint = _parse_sampler_sample_by_category_output(result)
         except:
             print("except")
             # If that fails, try with just bg_color if specified
             if attributes['bg_color'] is not None:
-                input_grid, object_mask, sub_obj_masks = sampler.sample_by_category(grid_categories, bg_color=attributes['bg_color'])
+                result = sampler.sample_by_category(grid_categories, bg_color=attributes['bg_color'])
+                input_grid, object_mask, sub_obj_masks, hint = _parse_sampler_sample_by_category_output(result)
             else:
                 print("raising exception")
                 raise
@@ -397,7 +469,7 @@ def generate_grid(attributes, grid_categories, sampler=None):
     # Note: bg_color will still be used for parameter replacement in instructions
     input_grid_np = np.array(input_grid)
 
-    return input_grid_np, object_mask, sub_obj_masks
+    return input_grid_np, object_mask, sub_obj_masks, hint
 
 
 def _process_parameter_tags(parameter_tags, preset_parameter_values, sample_kwargs, attributes):
@@ -457,84 +529,6 @@ def _process_parameter_tags(parameter_tags, preset_parameter_values, sample_kwar
 
     if colors_present:
         sample_kwargs['colors_present'] = colors_present
-
-def generate_basic(attributes, parameter_tags, sampler=None, k=3, preset_parameter_values=None):
-    if sampler is None:
-        sampler = GridSampler()
-
-    has_bg_color_param = parameter_tags and 'bg_color' in parameter_tags
-
-    # Use min_grid_dim and max_grid_dim if provided
-    sample_kwargs = {}
-    sample_kwargs['min_dim'] = attributes['min_grid_dim']
-    sample_kwargs['max_dim'] = attributes['max_grid_dim']
-
-    _process_parameter_tags(parameter_tags, preset_parameter_values, sample_kwargs, attributes)
-
-    grids = []
-    unique_colors_list = []
-
-    for _ in range(k):
-        input_grid = sampler.sample(**sample_kwargs)
-        input_grid_np = np.array(input_grid)
-        grids.append(input_grid_np)
-        unique_colors = np.unique(input_grid_np).tolist()
-        if not unique_colors:
-            unique_colors = [0]
-        unique_colors_list.append(unique_colors)
-
-    # The main (first) grid for parameters assignment
-    input_grid_np = grids[0]
-    unique_colors = unique_colors_list[0]
-
-    # Track used colors for parameter mutual exclusivity here
-    used_colors = set()
-    if has_bg_color_param and attributes['bg_color'] is not None:
-        used_colors.add(attributes['bg_color'])
-
-    # Start with preset values if provided
-    param_values = {}
-    if preset_parameter_values:
-        # Convert string keys like 'param1' to integer indices
-        for key, value in preset_parameter_values.items():
-            if isinstance(key, str) and key.startswith('param') and len(key) > 5:
-                try:
-                    param_num = int(key[5:])
-                    param_index = param_num - 1  # Convert to 0-based index
-                    param_values[param_index] = value
-                except ValueError:
-                    pass
-            elif isinstance(key, int):
-                param_values[key] = value
-    
-    # Track colors already used by preset values
-    if parameter_tags:
-        for i, value in param_values.items():
-            if i < len(parameter_tags) and parameter_tags[i] in ('color', 'fg_color', 'existing_color', 'bg_color'):
-                used_colors.add(value)
-
-    # Assign colors to color-related parameters using common function
-    # Only assign if not already set by preset values
-    generated_param_values, _ = assign_color_parameters(
-        parameter_tags,
-        unique_colors,
-        attributes['bg_color'],
-        used_colors
-    )
-    
-    # Merge generated values (only for parameters not already set)
-    for i, value in generated_param_values.items():
-        if i not in param_values:
-            param_values[i] = value
-    
-    # Assign margin parameters (random integer between 1 and 5)
-    if parameter_tags:
-        for i, tag in enumerate(parameter_tags):
-            if tag == 'margin' and i not in param_values:
-                param_values[i] = np.random.randint(1, 6)  # Random margin value 1-5
-
-    # Return all 3 input grids, but for backward compatibility keep older return signature too
-    return grids, param_values # No bg_mask for basic grids
 
 def _process_bg_color(parameter_tags, preset_parameter_values, has_bg_color_param):
     has_fg_color_param = parameter_tags and 'fg_color' in parameter_tags
@@ -614,7 +608,7 @@ def _to_mask_np(mask, grid_height, grid_width):
     return mask_np
 
 def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_objects, has_get_bg, has_second_get_objects=False):
-    input_grid_np, object_mask, sub_obj_masks = generate_grid(attributes, categories_to_use, sampler)
+    input_grid_np, object_mask, sub_obj_masks, hint = generate_grid(attributes, categories_to_use, sampler)
     grid_height, grid_width = input_grid_np.shape[:2]
 
     # For the first get_objects / get_bg call we use a single object mask aligned with the grid.
@@ -629,7 +623,7 @@ def _generate_grid_inner_loop(attributes, categories_to_use, sampler, has_get_ob
     if has_second_get_objects and sub_obj_masks is not None:
         sub_obj_masks_out = sub_obj_masks
 
-    return input_grid_np, object_mask_np, sub_obj_masks_out
+    return input_grid_np, object_mask_np, sub_obj_masks_out, hint
 
 def attempt_to_generate(placeholder_instructions, grid_categories, attributes, parameter_tags, sampler=None, preset_parameter_values=None):
     # If bg_color or fg_color parameter is specified, randomly select bg_color for this example
@@ -642,112 +636,100 @@ def attempt_to_generate(placeholder_instructions, grid_categories, attributes, p
 
     # Generate input grid based on constraints
 
-    if grid_categories == ['basic']:
-        grids, param_values = generate_basic(attributes, parameter_tags, sampler, preset_parameter_values=preset_parameter_values)
-        
-        # No need to skip instructions for basic tasks
-        # Replace parameter placeholders with actual values for this example
-        # replace_parameter_placeholders will handle copying if needed
-        instructions_to_execute = replace_parameter_placeholders(placeholder_instructions, param_values)
+    has_get_objects, has_get_bg, get_objects_indices = _check_get_object(placeholder_instructions)
+    has_second_get_objects = len(get_objects_indices) >= 2
 
-        # Return all k=3 grids and empty object_masks list (no sub_object_masks for basic)
-        object_masks = [[] for _ in range(len(grids) if isinstance(grids, list) else 1)]
-        sub_object_masks_list = [None] * (len(grids) if isinstance(grids, list) else 1)
+    # For object completion tasks (has_get_objects), use the same grid_category for all k examples
+    categories_to_use = grid_categories
+    if has_get_objects and len(grid_categories) > 1:
+        # Select a single category randomly and use it for all k grids
+        selected_category = np.random.choice(grid_categories)
+        categories_to_use = [selected_category]
+    
+    # Generate k=3 input grids and object_masks
+    k = 3
+    grids = []
+    object_masks = []
+    sub_object_masks_list = []
+    hints_list = []
+    
+    for _ in range(k):
+        tmp_grids, tmp_object_masks, tmp_sub_obj_masks, tmp_hint = _generate_grid_inner_loop(
+            attributes, categories_to_use, sampler, has_get_objects, has_get_bg, has_second_get_objects
+        )
+        grids.append(tmp_grids)
+        object_masks.append(tmp_object_masks)
+        sub_object_masks_list.append(tmp_sub_obj_masks)
+        hints_list.append(tmp_hint)
 
-        return grids, object_masks, sub_object_masks_list, instructions_to_execute, param_values
-    else:
-        has_get_objects, has_get_bg, get_objects_indices = _check_get_object(placeholder_instructions)
-        has_second_get_objects = len(get_objects_indices) >= 2
+    # Replace parameter placeholders with actual values for this example
+    # Extract unique colors from the input grid for existing_color parameters
+    # Cache unique_colors computation - only compute if needed
+    unique_colors = None
+    if parameter_tags and any(tag in ('existing_color', 'fg_color', 'color') for tag in parameter_tags):
+        unique_colors = np.unique(grids[0]).tolist()
+        if not unique_colors:
+            # Fallback if grid is empty (shouldn't happen, but be safe)
+            unique_colors = [0]
+    elif not unique_colors:
+        unique_colors = []  # Empty list if not needed
+    
+    # Create parameter values dict based on tags and generated colors
+    # Ensure all color-related parameters (color, fg_color, existing_color) are mutually exclusive
+    param_values = {}
+    
+    # Start with preset values if provided
+    if preset_parameter_values:
+        # Convert string keys like 'param1' to integer indices
+        for key, value in preset_parameter_values.items():
+            if isinstance(key, str) and key.startswith('param') and len(key) > 5:
+                try:
+                    param_num = int(key[5:])
+                    param_index = param_num - 1  # Convert to 0-based index
+                    param_values[param_index] = value
+                except ValueError:
+                    pass
+            elif isinstance(key, int):
+                param_values[key] = value
+    
+    if parameter_tags:
+        # First, handle bg_color if present (it's used for grid generation, not as a parameter)
+        # But we still need to track it for mutual exclusivity
+        used_colors = set()
+        if has_bg_color_param and attributes['bg_color'] is not None:
+            used_colors.add(attributes['bg_color'])
+        
+        # Track colors already used by preset values
+        for i, value in param_values.items():
+            if i < len(parameter_tags) and parameter_tags[i] in ('color', 'fg_color', 'existing_color', 'bg_color'):
+                used_colors.add(value)
+        
+        # Assign colors to color-related parameters using common function
+        # Only assign if not already set by preset values
+        generated_param_values, _ = assign_color_parameters(
+            parameter_tags, 
+            unique_colors, 
+            attributes['bg_color'], 
+            used_colors
+        )
+        
+        # Merge generated values (only for parameters not already set)
+        for i, value in generated_param_values.items():
+            if i not in param_values:
+                param_values[i] = value
+        
+        # Assign margin parameters (random integer between 1 and 5)
+        for i, tag in enumerate(parameter_tags):
+            if tag == 'margin' and i not in param_values:
+                param_values[i] = np.random.randint(1, 6)  # Random margin value 1-5
+            elif tag == 'small_delta' and i not in param_values:
+                param_values[i] = int(np.random.choice([-3, -2, -1, 0, 1, 2, 3]))
+    
+    # Pass the list of tags and the values dict
+    instructions_to_execute = replace_parameter_placeholders(placeholder_instructions, param_values)
 
-        # For object completion tasks (has_get_objects), use the same grid_category for all k examples
-        categories_to_use = grid_categories
-        if has_get_objects and len(grid_categories) > 1:
-            # Select a single category randomly and use it for all k grids
-            selected_category = np.random.choice(grid_categories)
-            categories_to_use = [selected_category]
-        
-        # Generate k=3 input grids and object_masks
-        k = 3
-        grids = []
-        object_masks = []
-        sub_object_masks_list = []
-        
-        for _ in range(k):
-            tmp_grids, tmp_object_masks, tmp_sub_obj_masks = _generate_grid_inner_loop(
-                attributes, categories_to_use, sampler, has_get_objects, has_get_bg, has_second_get_objects
-            )
-            grids.append(tmp_grids)
-            object_masks.append(tmp_object_masks)
-            sub_object_masks_list.append(tmp_sub_obj_masks)
-
-        # Replace parameter placeholders with actual values for this example
-        # Extract unique colors from the input grid for existing_color parameters
-        # Cache unique_colors computation - only compute if needed
-        unique_colors = None
-        if parameter_tags and any(tag in ('existing_color', 'fg_color', 'color') for tag in parameter_tags):
-            unique_colors = np.unique(grids[0]).tolist()
-            if not unique_colors:
-                # Fallback if grid is empty (shouldn't happen, but be safe)
-                unique_colors = [0]
-        elif not unique_colors:
-            unique_colors = []  # Empty list if not needed
-        
-        # Create parameter values dict based on tags and generated colors
-        # Ensure all color-related parameters (color, fg_color, existing_color) are mutually exclusive
-        param_values = {}
-        
-        # Start with preset values if provided
-        if preset_parameter_values:
-            # Convert string keys like 'param1' to integer indices
-            for key, value in preset_parameter_values.items():
-                if isinstance(key, str) and key.startswith('param') and len(key) > 5:
-                    try:
-                        param_num = int(key[5:])
-                        param_index = param_num - 1  # Convert to 0-based index
-                        param_values[param_index] = value
-                    except ValueError:
-                        pass
-                elif isinstance(key, int):
-                    param_values[key] = value
-        
-        if parameter_tags:
-            # First, handle bg_color if present (it's used for grid generation, not as a parameter)
-            # But we still need to track it for mutual exclusivity
-            used_colors = set()
-            if has_bg_color_param and attributes['bg_color'] is not None:
-                used_colors.add(attributes['bg_color'])
-            
-            # Track colors already used by preset values
-            for i, value in param_values.items():
-                if i < len(parameter_tags) and parameter_tags[i] in ('color', 'fg_color', 'existing_color', 'bg_color'):
-                    used_colors.add(value)
-            
-            # Assign colors to color-related parameters using common function
-            # Only assign if not already set by preset values
-            generated_param_values, _ = assign_color_parameters(
-                parameter_tags, 
-                unique_colors, 
-                attributes['bg_color'], 
-                used_colors
-            )
-            
-            # Merge generated values (only for parameters not already set)
-            for i, value in generated_param_values.items():
-                if i not in param_values:
-                    param_values[i] = value
-            
-            # Assign margin parameters (random integer between 1 and 5)
-            for i, tag in enumerate(parameter_tags):
-                if tag == 'margin' and i not in param_values:
-                    param_values[i] = np.random.randint(1, 6)  # Random margin value 1-5
-                elif tag == 'small_delta' and i not in param_values:
-                    param_values[i] = int(np.random.choice([-3, -2, -1, 0, 1, 2, 3]))
-        
-        # Pass the list of tags and the values dict
-        instructions_to_execute = replace_parameter_placeholders(placeholder_instructions, param_values)
-
-        # Return all k=3 grids, object_masks, and sub_object_masks (for second get_objects when present)
-        return grids, object_masks, sub_object_masks_list, instructions_to_execute, param_values
+    # Return all k=3 grids, object_masks, and sub_object_masks (for second get_objects when present)
+    return grids, object_masks, sub_object_masks_list, instructions_to_execute, param_values, hints_list
 
 
 def execute_program(input_grid_np, instructions, initial_state, catch_exceptions=True, object_mask=None, debug_info=None, sub_object_mask=None):
@@ -888,7 +870,7 @@ def execute_on_all_grids(input_grids_list, object_mask_list, instructions_to_exe
     return True, output_grids_list, None
 
 
-def create_examples_from_grids(input_grids_list, output_grids_list, object_mask_list, param_values):
+def create_examples_from_grids(input_grids_list, output_grids_list, object_mask_list, param_values, hints_list=None):
     """Create example dictionaries from input/output grids.
     
     Note: All k examples use the same parameter values (determined once from the first grid
@@ -911,12 +893,18 @@ def create_examples_from_grids(input_grids_list, output_grids_list, object_mask_
             param_name = f'param{index + 1}'
             parameters_dict[param_name] = value
     
+    if hints_list is None:
+        hints_list = [""] * len(input_grids_list)
+    if len(hints_list) == 1 and len(input_grids_list) > 1:
+        hints_list = hints_list * len(input_grids_list)
+
     examples = []
     for i, (input_grid_np, output_grid_np, object_mask) in enumerate(zip(input_grids_list, output_grids_list, object_mask_list)):
         example_dict = {
             'input': input_grid_np.tolist(),
             'output': output_grid_np.tolist(),
             'object_mask': object_mask if isinstance(object_mask, list) else (object_mask.tolist() if hasattr(object_mask, 'tolist') else object_mask),
+            'hint': hints_list[i] if i < len(hints_list) else ""
         }
         # Only add parameters field if there are actual parameter values (add to first example only)
         # All k examples use the same parameter values, so we store them once to avoid duplication

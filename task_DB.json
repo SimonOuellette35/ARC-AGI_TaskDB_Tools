@@ -9589,7 +9589,7 @@
   },
   {
     "name": "Object Draw Corners In Out [mutated 2]",
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  neighbours8(N+0),\n  neighbours4(N+0),\n  set_difference(N+2, N+1),\n  del(N+2),\n  count_items(N+3),\n  count_items(N+2),\n  del(N+2),\n  del(N+2),\n  equal(N+2, 1),\n  switch(N+4, \"param1\", N+0.c),\n  del(N+4),\n  set_color(N+0, N+2),\n  del(N+4),\n  del(N+0),\n  equal(N+1, 3),\n  del(N+1),\n  equal(N+1, 4),\n  del(N+1),\n  and(N+2, N+3),\n  del(N+2),\n  del(N+2),\n  switch(N+2, \"param2\", N+1.c),\n  del(N+2),\n  set_color(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  neighbours8(N+0),\n  neighbours4(N+0),\n  set_difference(N+2, N+3),\n  del(N+2),\n  count_items(N+3),\n  count_items(N+2),\n  del(N+2),\n  del(N+2),\n  equal(N+2, 1),\n  switch(N+4, \"param1\", N+0.c),\n  del(N+4),\n  set_color(N+0, N+2),\n  del(N+4),\n  del(N+0),\n  equal(N+1, 3),\n  del(N+1),\n  equal(N+1, 4),\n  del(N+1),\n  and(N+2, N+3),\n  del(N+2),\n  del(N+2),\n  switch(N+2, \"param2\", N+1.c),\n  del(N+2),\n  set_color(N+1, N+2),\n  del(N+2),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "curriculum_level": 0,
     "source": "Auto",

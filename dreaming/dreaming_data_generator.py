@@ -240,7 +240,15 @@ class DreamingDataGenerator:
                 
                 # Generate 3 input-output examples for this task
                 valid = False
+                valid_attempts = 0
+                max_valid_attempts = 50
                 while not valid:
+                    valid_attempts += 1
+                    if valid_attempts > max_valid_attempts:
+                        raise RuntimeError(
+                            f"Failed to generate valid examples for task '{task.get('name', '')}' "
+                            f"after {max_valid_attempts} attempts"
+                        )
                     try:
                         examples = generate_grid_examples(
                             instructions, 
@@ -249,7 +257,8 @@ class DreamingDataGenerator:
                             strict=False,
                             parameters=parameter_tags,
                             min_grid_dim=min_grid_dim,
-                            max_grid_dim=max_grid_dim
+                            max_grid_dim=max_grid_dim,
+                            catch_exceptions=False
                         )
                         
                         if len(examples) < 3:
@@ -275,8 +284,15 @@ class DreamingDataGenerator:
                         task_samples.append(entry)
                         valid = True
                         
-                    except Exception as e:
-                        continue
+                    except Exception:
+                        # Print context first, then let the caller print the traceback.
+                        print(
+                            f"[DreamingDataGenerator] Example generation failed "
+                            f"task='{task.get('name', '')}', "
+                            f"attempts={valid_attempts}, "
+                            f"min_grid_dim={min_grid_dim}, max_grid_dim={max_grid_dim}"
+                        )
+                        raise
             
             all_samples.extend(task_samples)
         
@@ -376,7 +392,15 @@ class DreamingDataGenerator:
             
             # Generate 3 input-output examples for this task using generate_grid_examples
             valid = False
+            valid_attempts = 0
+            max_valid_attempts = 50
             while not valid:
+                valid_attempts += 1
+                if valid_attempts > max_valid_attempts:
+                    raise RuntimeError(
+                        f"Failed to generate valid examples for task '{task.get('name', '')}' "
+                        f"after {max_valid_attempts} attempts"
+                    )
                 try:
                     examples = generate_grid_examples(
                         instructions, 
@@ -418,8 +442,15 @@ class DreamingDataGenerator:
                     
                     valid = True
 
-                except Exception as e:
-                    continue
+                except Exception:
+                    # Print context first, then let the caller print the traceback.
+                    print(
+                        f"[DreamingDataGenerator] Example generation failed "
+                        f"task='{task.get('name', '')}', "
+                        f"attempts={valid_attempts}, "
+                        f"min_grid_dim={min_grid_dim}, max_grid_dim={max_grid_dim}"
+                    )
+                    raise
 
         return samples
 
