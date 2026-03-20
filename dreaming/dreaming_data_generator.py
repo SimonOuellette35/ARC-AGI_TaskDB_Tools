@@ -266,10 +266,15 @@ class DreamingDataGenerator:
                         
                         examples = examples[:3]
                         
-                        # Remove 'parameters' field and ensure 'object_mask' is present
+                        # Hoist hint to task-example level; keep train examples compact.
+                        task_hint = examples[0].get('hint', '') if examples else ''
+
+                        # Remove per-grid metadata not needed inside each train example.
                         for example in examples:
                             if 'parameters' in example:
                                 del example['parameters']
+                            if 'hint' in example:
+                                del example['hint']
                             if 'object_mask' not in example:
                                 example['object_mask'] = []
                         
@@ -278,7 +283,8 @@ class DreamingDataGenerator:
                             'train': examples,
                             'test': [],
                             'prog': instructions,
-                            'name': task.get('name', '')
+                            'name': task.get('name', ''),
+                            'hint': task_hint
                         }
                         
                         task_samples.append(entry)
@@ -421,11 +427,16 @@ class DreamingDataGenerator:
                     # Use exactly 3 examples
                     examples = examples[:3]
                     
-                    # Remove 'parameters' field from examples (not needed in validation.json format)
-                    # and ensure 'object_mask' is present (it should be from generate_grid_examples now)
+                    # Hoist hint to task-example level; keep train examples compact.
+                    task_hint = examples[0].get('hint', '') if examples else ''
+
+                    # Remove per-grid metadata not needed inside each train example,
+                    # and ensure object_mask is present.
                     for example in examples:
                         if 'parameters' in example:
                             del example['parameters']
+                        if 'hint' in example:
+                            del example['hint']
                         # Ensure object_mask exists (should be there from generate_grid_examples)
                         if 'object_mask' not in example:
                             example['object_mask'] = []
@@ -435,7 +446,8 @@ class DreamingDataGenerator:
                         'train': examples,
                         'test': [],  # No test examples for dreaming data
                         'prog': instructions,  # Instruction sequence (integer sequences)
-                        'name': task.get('name', '')  # Task name
+                        'name': task.get('name', ''),  # Task name
+                        'hint': task_hint
                     }
                     
                     samples.append(entry)
