@@ -778,6 +778,9 @@ def execute_program(input_grid_np, instructions, initial_state, catch_exceptions
                 return False, None, None
 
             # Validation: Output grid must be <= 30 wide and <= 30 in height
+            if len(output_grid_np.shape) != 2:
+                return False, None, None
+                
             output_height, output_width = output_grid_np.shape[:2]
             if output_width > 30 or output_height > 30:
                 # Skip this example and retry
