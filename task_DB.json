@@ -548,7 +548,7 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.width, param1),\n  sub(N+0.height, param1),\n  crop(N+0, param1, param1, N+1, N+2),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.width, \"param1\"),\n  sub(N+0.height, \"param1\"),\n  crop(N+0, \"param1\", \"param1\", N+1, N+2),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [
       "grid width - 1",
       "grid height - 1",
@@ -4712,7 +4712,7 @@
   },
   {
     "name": "Crop Inside + Tile Down",
-    "program": "[\n  sub(N+0.width, param1),\n  sub(N+0.height, param1),\n  crop(N+0, param1, param1, N+1, N+2),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.width, \"param1\"),\n  sub(N+0.height, \"param1\"),\n  crop(N+0, \"param1\", \"param1\", N+1, N+2),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [
       "grid width - 1",
       "grid height - 1",
@@ -8795,7 +8795,7 @@
   },
   {
     "name": "Fill Color with Bg Color Contour",
-    "program": "[\n  set_difference(N+0, 7),\n  get_bg(N+0),\n  del(N+0),\n  crop(N+0, 1, 1, N+0.max_x, N+0.max_y),\n  set_color(N+2, \"param1\"),\n  del(N+0),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  get_bg(N+0),\n  del(N+0),\n  crop(N+0, 1, 1, N+0.max_x, N+0.max_y),\n  set_color(N+1, \"param1\"),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [
       "list of objects",
       "grid background",
@@ -9092,23 +9092,6 @@
     "parameters": [],
     "grid_categories": [
       "distinct_colors_adjacent_empty"
-    ],
-    "min_grid_dim": 5,
-    "max_grid_dim": 30,
-    "validated": true
-  },
-  {
-    "name": "Object Crop UL Quadrant + Set Colors",
-    "program": "[\n  get_objects(N+0),\n  del(N+0),\n  index(N+0, 0),\n  del(N+0),\n  div(N+0.width, 2),\n  div(N+0.height, 2),\n  crop(N+0, 0, 0, N+1, N+2),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  equal(N+0.c, param1),\n  sub(5, N+1),\n  del(N+1),\n  set_pixels(N+0, N+0.x, N+0.y, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [],
-    "curriculum_level": 1,
-    "source": "Auto",
-    "parameters": [
-      "existing_color"
-    ],
-    "grid_categories": [
-      "single_object",
-      "single_object_noisy_bg"
     ],
     "min_grid_dim": 5,
     "max_grid_dim": 30,
@@ -9640,24 +9623,6 @@
     ],
     "min_grid_dim": 6,
     "max_grid_dim": 30,
-    "validated": true
-  },
-  {
-    "name": "Keep Top Row Fill Rest",
-    "program": "[\n  set_difference(N+0, N+0.ul_x),\n  get_bg(N+0),\n  del(N+2),\n  del(N+0),\n  switch(N+0.y, \"param1\", N+0.c),\n  set_color(N+0, N+1),\n  del(N+1),\n  del(N+0)\n]",
-    "comments": [],
-    "curriculum_level": 1,
-    "source": "Auto",
-    "parameters": [
-      "color"
-    ],
-    "grid_categories": [
-      "single_object",
-      "single_object_noisy_bg",
-      "window_noisy_bg"
-    ],
-    "min_grid_dim": 5,
-    "max_grid_dim": 10,
     "validated": true
   },
   {
@@ -10509,7 +10474,7 @@
   {
     "name": "Tile Right - Identity, Flip H",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  add(N+0.width, N+1),\n  set_pixels(N+0, N+2, N+0.y, N+0.c),\n  del(N+0)\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_x, N+0.x),\n  add(N+0.width, N+1),\n  set_pixels(N+0, N+2, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10523,7 +10488,7 @@
   {
     "name": "Tile Down - Identity, Flip V",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_y, N+0.y),\n  add(N+0.height, N+1),\n  set_pixels(N+0, N+0.x, N+2, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_y, N+0.y),\n  add(N+0.height, N+1),\n  set_pixels(N+0, N+0.x, N+2, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10537,7 +10502,7 @@
   {
     "name": "Tile Right - Identity, Flip V",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_y, N+0.y),\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+2, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_y, N+0.y),\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+2, N+1, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10551,7 +10516,7 @@
   {
     "name": "Tile Down - Identity, Flip H",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+1, N+2, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_x, N+0.x),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+1, N+2, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10579,7 +10544,7 @@
   {
     "name": "Tile Down - Flip H, Flip V",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  sub(N+0.max_y, N+0.y),\n  add(N+0.height, N+2),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  set_pixels(N+4, N+0.x, N+3, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  sub(N+0.max_x, N+0.x),\n  sub(N+0.max_y, N+0.y),\n  add(N+0.height, N+2),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  set_pixels(N+4, N+0.x, N+3, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
