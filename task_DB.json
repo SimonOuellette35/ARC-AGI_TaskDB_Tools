@@ -7912,53 +7912,6 @@
     "validated": true
   },
   {
-    "name": "Object Draw Outer Corners",
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  neighbours8(N+0),\n  neighbours4(N+0),\n  set_difference(N+2, N+3),\n  del(N+2),\n  count_items(N+3),\n  count_items(N+2),\n  del(N+2),\n  del(N+2),\n  equal(N+2, 1),\n  equal(N+2, 3),\n  del(N+2),\n  set_difference(7, 4),\n  del(N+2),\n  and(N+3, N+4),\n  del(N+3),\n  del(N+3),\n  or(N+2, N+3),\n  del(N+2),\n  del(N+2),\n  switch(N+2, \"param1\", N+0.c),\n  del(N+2),\n  set_color(N+0, N+2),\n  del(N+2),\n  del(N+0),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "list of objects",
-      "grid background",
-      "",
-      "for each object pixel, its 8-connected neighbours",
-      "for each object pixel, its 4-connected neighbours",
-      "for each object pixel, its diagonal neighbours",
-      "",
-      "for each object pixel, the number of diagonal neighbours",
-      "for each object pixel, the number of 4-connected neighbours",
-      "",
-      "",
-      "for each object pixel, whether it is an outer corner",
-      "for each object pixel, whether the number of diagonal neighbours == 3",
-      "",
-      "for each object pixel, whether the number of 4-connected neighbours == 4",
-      "",
-      "for each object pixel, whether it is an inner corner",
-      "",
-      "",
-      "for each object pixel, whether it is an inner corner OR an outer corner",
-      "",
-      "",
-      "corner pixels set to color 9",
-      "",
-      "list of objects",
-      "",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
-    "curriculum_level": 0,
-    "source": "Auto",
-    "parameters": [
-      "color"
-    ],
-    "grid_categories": [
-      "corner_objects"
-    ],
-    "min_grid_dim": 8,
-    "max_grid_dim": 30,
-    "validated": true
-  },
-  {
     "name": "Object Inside Fill Biggest + Shear Left",
     "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  crop(N+0, 1, 1, N+0.max_x, N+0.max_y),\n  set_color(N+2, \"param1\"),\n  del(N+0),\n  del(N+1),\n  count_items(N+1.c),\n  arg_max(N+1, N+2),\n  del(N+1),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0),\n  add(N+0.x, N+0.y),\n  new_grid(N+0.width, N+0.height, 0),\n  set_pixels(N+2, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [
@@ -9179,22 +9132,6 @@
     "validated": true
   },
   {
-    "name": "Object Draw Outer Corners + Remove Object",
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  neighbours8(N+0),\n  neighbours4(N+0),\n  set_difference(N+2, N+3),\n  del(N+2),\n  count_items(N+3),\n  count_items(N+2),\n  del(N+2),\n  del(N+2),\n  equal(N+2, 1),\n  equal(N+2, 3),\n  del(N+2),\n  set_difference(7, 4),\n  del(N+2),\n  and(N+3, N+4),\n  del(N+3),\n  del(N+3),\n  or(N+2, N+3),\n  del(N+2),\n  del(N+2),\n  switch(N+2, \"param1\", N+0.c),\n  del(N+3),\n  set_color(N+0, N+2),\n  del(N+2),\n  del(N+0),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [],
-    "curriculum_level": 0,
-    "source": "Auto",
-    "parameters": [
-      "color"
-    ],
-    "grid_categories": [
-      "corner_objects"
-    ],
-    "min_grid_dim": 8,
-    "max_grid_dim": 30,
-    "validated": true
-  },
-  {
     "name": "Object Rotate 180 + Contour",
     "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+2),\n  del(N+2),\n  sub(N+0.max_y, N+0.y),\n  del(N+0),\n  set_y(N+1, N+2),\n  del(N+1),\n  del(N+1),\n  sub(0, 1),\n  set_pixels(N+1, N+2, N+1.y, \"param1\"),\n  del(N+1),\n  set_pixels(N+2, N+2.x, N+1, \"param1\"),\n  del(N+1),\n  del(N+1),\n  set_pixels(N+1, N+1.width, N+1.y, \"param1\"),\n  del(N+1),\n  set_pixels(N+1, N+1.x, N+1.height, \"param1\"),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
@@ -9322,22 +9259,6 @@
       "corner_objects"
     ],
     "min_grid_dim": 4,
-    "max_grid_dim": 30,
-    "validated": true
-  },
-  {
-    "name": "Object Draw Outer Corners + Hollowing Bg",
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  neighbours8(N+0),\n  neighbours4(N+0),\n  set_difference(N+2, N+3),\n  del(N+2),\n  count_items(N+3),\n  count_items(N+2),\n  del(N+2),\n  del(N+2),\n  equal(N+2, 1),\n  equal(N+2, 3),\n  del(N+2),\n  set_difference(7, 4),\n  del(N+2),\n  and(N+3, N+4),\n  del(N+3),\n  del(N+3),\n  or(N+2, N+3),\n  del(N+2),\n  del(N+2),\n  switch(N+2, \"param1\", N+0.c),\n  del(N+2),\n  set_color(N+0, N+2),\n  del(N+2),\n  del(N+0),\n  index(N+1.c, 0),\n  neighbours4(N+1),\n  count_items(N+3),\n  del(N+3),\n  less_than(N+3, 4),\n  del(N+3),\n  switch(N+3, N+1.c, N+2),\n  del(N+2),\n  del(N+2),\n  set_color(N+1, N+2),\n  del(N+1),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [],
-    "curriculum_level": 1,
-    "source": "Auto",
-    "parameters": [
-      "color"
-    ],
-    "grid_categories": [
-      "corner_objects"
-    ],
-    "min_grid_dim": 8,
     "max_grid_dim": 30,
     "validated": true
   },
