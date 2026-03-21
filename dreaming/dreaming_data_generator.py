@@ -25,6 +25,7 @@ VERBOSE = False
 DISPLAY_PROGRAM_VALIDATION_TRACEBACK = False
 
 hint_to_class_int_mapping = {
+    '': -1,                     # if hint is '', it's not an objectness task and should not be used to train the neural primitive anyway
     'pixel-color': 0,
     'fill-color': 1,
     'fill-rect': 2,
