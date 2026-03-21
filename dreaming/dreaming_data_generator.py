@@ -24,6 +24,29 @@ import ARC_gym.utils.visualization as viz
 VERBOSE = False
 DISPLAY_PROGRAM_VALIDATION_TRACEBACK = False
 
+hint_to_class_int_mapping = {
+    'pixel-color': 0,
+    'fill-color': 1,
+    'fill-rect': 2,
+    'empty-rect': 3,
+    'incomplete-rect': 4,
+    'incomplete-same-rect': 5,
+    'incomplete_dot_plus': 6,
+    'incomplete_dot_x': 7,
+    'incomplete_plus_hollow': 8,
+    'incomplete_x_hollow': 9,
+    'incomplete_plus_filled': 10,
+    'incomplete_x_filled': 11,
+    'incomplete_square_hollow': 12,
+    'four-corners': 13,
+    'split-grid-b': 14,
+    'split-grid': 15
+}
+
+
+def _hint_to_class_int(hint):
+    return hint_to_class_int_mapping[hint]
+
 # ============================================================================ Public methods ===============================================================================
 
 def block_of_text_to_program_lines(program_str):
@@ -267,7 +290,7 @@ class DreamingDataGenerator:
                         examples = examples[:3]
                         
                         # Hoist hint to task-example level; keep train examples compact.
-                        task_hint = examples[0].get('hint', '') if examples else ''
+                        task_hint = _hint_to_class_int(examples[0]['hint'])
 
                         # Remove per-grid metadata not needed inside each train example.
                         for example in examples:
@@ -421,14 +444,13 @@ class DreamingDataGenerator:
                     )
                     
                     if len(examples) < 3:
-                        print(f"Warning: Only generated {len(examples)} examples for task {task_idx + 1}, skipping...")
                         continue
                     
                     # Use exactly 3 examples
                     examples = examples[:3]
                     
                     # Hoist hint to task-example level; keep train examples compact.
-                    task_hint = examples[0].get('hint', '') if examples else ''
+                    task_hint = _hint_to_class_int(examples[0]['hint'])
 
                     # Remove per-grid metadata not needed inside each train example,
                     # and ensure object_mask is present.
