@@ -41,7 +41,8 @@ hint_to_class_int_mapping = {
     'incomplete_square_hollow': 12,
     'four-corners': 13,
     'split-grid-b': 14,
-    'split-grid': 15
+    'split-grid': 15,
+    'pixel-fg': 16
 }
 
 
