@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subroutine DB Manager</title>
+    <link rel="stylesheet" href="task_manager.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>
+                <span>Subroutines <span id="totalCount"></span></span>
+            </h2>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search subroutines...">
+            </div>
+            <ul class="task-list" id="subroutineList">
+                <li class="loading">Loading subroutines...</li>
+            </ul>
+        </div>
+
+        <div class="content" id="content">
+            <div class="empty-state">
+                <h2>Select a subroutine to view details</h2>
+                <p>Click on a subroutine from the list to see details</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let subroutines = [];
+        let currentIndex = -1;
+        let isEditing = false;
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        function updateTotalCount() {
+            const totalCountElement = document.getElementById('totalCount');
+            if (totalCountElement) {
+                totalCountElement.textContent = `(${subroutines.length})`;
+            }
+        }
+
+        function formatProgram(program) {
+            if (!program) return 'N/A';
+            return `<pre>${escapeHtml(program)}</pre>`;
+        }
+
+        function formatParameters(parameters) {
+            if (parameters === undefined || parameters === null || parameters === '') {
+                return '[]';
+            }
+            if (Array.isArray(parameters)) {
+                return JSON.stringify(parameters, null, 2);
+            }
+            if (typeof parameters === 'string') {
+                return parameters;
+            }
+            return JSON.stringify(parameters, null, 2);
+        }
+
+        function parseParametersField(value) {
+            const trimmed = value.trim();
+            if (!trimmed) return [];
+            try {
+                return JSON.parse(trimmed);
+            } catch (e) {
+                return trimmed;
+            }
+        }
+
+        async function loadSubroutines() {
+            try {
+                const response = await fetch('subroutine_DB.json');
+                subroutines = await response.json();
+                updateTotalCount();
+                renderList();
+            } catch (error) {
+                console.error('Error loading subroutines:', error);
+                document.getElementById('subroutineList').innerHTML =
+                    '<li style="color: #00aa00; border: 1px solid #00aa00; padding: 10px; background: #002200;">Error loading subroutines. Make sure subroutine_DB.json is available.</li>';
+            }
+        }
+
+        function renderList(filter = '') {
+            const list = document.getElementById('subroutineList');
+            const searchTerm = filter.toLowerCase();
+
+            const indexed = subroutines
+                .map((subroutine, originalIndex) => ({ subroutine, originalIndex }))
+                .filter(({ subroutine }) => (subroutine.name || '').toLowerCase().includes(searchTerm))
+                .sort((a, b) => (a.subroutine.name || '').localeCompare(b.subroutine.name || ''));
+
+            if (indexed.length === 0) {
+                list.innerHTML = '<li style="color: #008800; border: 1px solid #00aa00; padding: 10px; background: #002200;">No subroutines found</li>';
+                return;
+            }
+
+            list.innerHTML = indexed.map(({ subroutine, originalIndex }) => {
+                const validated = !!subroutine.validated;
+                const validationIcon = validated
+                    ? '<span class="task-item-validation-icon validated">✓</span>'
+                    : '<span class="task-item-validation-icon not-validated">?</span>';
+                return `
+                    <div class="task-item ${originalIndex === currentIndex ? 'active' : ''}" onclick="selectSubroutine(${originalIndex}, event)">
+                        <span class="task-item-name">${escapeHtml(subroutine.name || 'Unnamed Subroutine')}</span>
+                        ${validationIcon}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectSubroutine(index, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            if (isEditing) {
+                if (!confirm('You have unsaved changes. Discard them?')) return;
+                isEditing = false;
+            }
+
+            currentIndex = index;
+            renderList(document.getElementById('searchInput').value);
+            renderDetails(subroutines[index]);
+        }
+
+        function renderDetails(subroutine) {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="content-header">
+                    <h1>${escapeHtml(subroutine.name || 'Unnamed Subroutine')}</h1>
+                    <div class="action-buttons">
+                        <button class="btn btn-validate" onclick="toggleValidate()">${subroutine.validated ? 'Unvalidate' : 'Validate'}</button>
+                        <button class="btn btn-edit" onclick="startEdit()">Edit</button>
+                        <button class="btn btn-delete" onclick="deleteSubroutine()">Delete</button>
+                    </div>
+                </div>
+
+                <div class="detail-view" id="detailView">
+                    <div class="detail-section">
+                        <h3>Program</h3>
+                        <div class="detail-content">${formatProgram(subroutine.program)}</div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-section">
+                            <h3>Parameters</h3>
+                            <div class="detail-content"><pre>${escapeHtml(formatParameters(subroutine.parameters))}</pre></div>
+                        </div>
+                        <div class="detail-section">
+                            <h3>Returns</h3>
+                            <div class="detail-content"><pre>${escapeHtml(subroutine.returns || 'N/A')}</pre></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="edit-form" id="editForm">
+                    <div class="form-group">
+                        <label for="editName">Name</label>
+                        <input type="text" id="editName" value="${escapeHtml(subroutine.name || '')}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editProgram">Program</label>
+                        <textarea id="editProgram">${escapeHtml(subroutine.program || '')}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editParameters">Parameters (JSON array or plain text)</label>
+                        <textarea id="editParameters">${escapeHtml(Array.isArray(subroutine.parameters) ? JSON.stringify(subroutine.parameters, null, 2) : (subroutine.parameters || ''))}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editReturns">Returns</label>
+                        <input type="text" id="editReturns" value="${escapeHtml(subroutine.returns || '')}">
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-save" onclick="saveSubroutine()">Save</button>
+                        <button class="btn btn-cancel" onclick="cancelEdit()">Cancel</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startEdit() {
+            isEditing = true;
+            document.getElementById('detailView').style.display = 'none';
+            document.getElementById('editForm').classList.add('active');
+            document.querySelector('.content-header .action-buttons').innerHTML = '';
+        }
+
+        function cancelEdit() {
+            isEditing = false;
+            renderDetails(subroutines[currentIndex]);
+        }
+
+        async function saveToServer() {
+            const response = await fetch('/save_subroutine', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subroutines)
+            });
+            if (!response.ok) {
+                const maybeJson = await response.json().catch(() => ({}));
+                throw new Error(maybeJson.message || 'Error saving subroutine DB');
+            }
+        }
+
+        async function saveSubroutine() {
+            try {
+                const current = subroutines[currentIndex];
+                current.name = document.getElementById('editName').value;
+                current.program = document.getElementById('editProgram').value;
+                current.parameters = parseParametersField(document.getElementById('editParameters').value);
+                current.returns = document.getElementById('editReturns').value;
+
+                isEditing = false;
+                await saveToServer();
+                updateTotalCount();
+                renderList(document.getElementById('searchInput').value);
+                renderDetails(current);
+                showNotification('Subroutine saved successfully!');
+            } catch (error) {
+                console.error('Error saving subroutine:', error);
+                showNotification(`Error saving subroutine: ${error.message}`, 'error');
+            }
+        }
+
+        async function toggleValidate() {
+            if (currentIndex < 0 || currentIndex >= subroutines.length) return;
+            const subroutine = subroutines[currentIndex];
+            const previousValue = !!subroutine.validated;
+            subroutine.validated = !previousValue;
+            try {
+                await saveToServer();
+                renderList(document.getElementById('searchInput').value);
+                renderDetails(subroutine);
+                showNotification(`Subroutine ${subroutine.validated ? 'validated' : 'unvalidated'} successfully!`);
+            } catch (error) {
+                subroutine.validated = previousValue;
+                showNotification(`Error updating validation: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteSubroutine() {
+            if (currentIndex < 0 || currentIndex >= subroutines.length) return;
+            if (!confirm(`Are you sure you want to delete "${subroutines[currentIndex].name}"?`)) return;
+
+            try {
+                subroutines.splice(currentIndex, 1);
+                currentIndex = -1;
+                await saveToServer();
+                updateTotalCount();
+                renderList(document.getElementById('searchInput').value);
+                document.getElementById('content').innerHTML = `
+                    <div class="empty-state">
+                        <h2>Select a subroutine to view details</h2>
+                        <p>Click on a subroutine from the list to see details</p>
+                    </div>
+                `;
+                showNotification('Subroutine deleted successfully!');
+            } catch (error) {
+                showNotification(`Error deleting subroutine: ${error.message}`, 'error');
+            }
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.background = '#151515';
+            notification.style.borderColor = '#00aa00';
+            notification.style.color = '#00aa00';
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            renderList(e.target.value);
+        });
+
+        loadSubroutines();
+    </script>
+</body>
+</html>

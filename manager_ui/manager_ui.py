@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Simple HTTP server to serve the task manager webpage and handle JSON file operations.
-Run this script and then open http://localhost:8000/manager_ui/task_manager.html in your browser.
+Simple HTTP server to serve the Task DB and Subroutine DB manager webpages and handle JSON file operations.
+Run this script and then open:
+  - http://localhost:8000/manager_ui/task_manager.html
+  - http://localhost:8000/manager_ui/subroutine_manager.html
 
 Use the --port argument to change the port number.
 """
@@ -20,6 +22,7 @@ sys.path.insert(0, str(project_root))
 
 # Path to task_DB.json in the root folder
 TASK_DB_PATH = project_root / 'task_DB.json'
+SUBROUTINE_DB_PATH = project_root / 'subroutine_DB.json'
 
 # Import required modules for grid generation
 import AmotizedDSL.DSL as DSL
@@ -163,9 +166,15 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
         # Serve task_manager.html
         if path == '/' or path == '/task_manager.html' or path == '/manager_ui/task_manager.html':
             self.serve_file('manager_ui/task_manager.html', 'text/html')
+        # Serve subroutine_manager.html
+        elif path == '/subroutine_manager.html' or path == '/manager_ui/subroutine_manager.html':
+            self.serve_file('manager_ui/subroutine_manager.html', 'text/html')
         # Serve task_DB.json
         elif path == '/task_DB.json' or path == '/manager_ui/task_DB.json':
             self.serve_file(str(TASK_DB_PATH), 'application/json')
+        # Serve subroutine_DB.json
+        elif path == '/subroutine_DB.json' or path == '/manager_ui/subroutine_DB.json':
+            self.serve_file(str(SUBROUTINE_DB_PATH), 'application/json')
         # Test endpoint
         elif path == '/test':
             self.send_response(200)
@@ -197,6 +206,8 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
         """Handle POST requests - save JSON data and execute programs."""
         if self.path == '/execute_program':
             self.handle_execute_program()
+        elif self.path == '/save_subroutine':
+            self.handle_save_subroutine()
         elif self.path == '/save':
             try:
                 # Read POST data
@@ -289,6 +300,78 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
                 }).encode('utf-8'))
         else:
             self.send_error(404, "Endpoint not found")
+
+    def handle_save_subroutine(self):
+        """Handle save requests for subroutine_DB.json."""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                raise ValueError("No content provided")
+
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON data: {e}")
+
+            if not isinstance(data, list):
+                raise ValueError(f"Expected a list of subroutines, got {type(data).__name__}")
+
+            for i, subroutine in enumerate(data):
+                if not isinstance(subroutine, dict):
+                    raise ValueError(f"Subroutine at index {i} is not a dictionary")
+                if 'name' not in subroutine or not subroutine['name']:
+                    raise ValueError(f"Subroutine at index {i} is missing a name")
+                if 'program' in subroutine and subroutine.get('program'):
+                    subroutine['program'] = normalize_program_format(subroutine['program'])
+
+            backup_path = str(SUBROUTINE_DB_PATH) + '.backup'
+            if os.path.exists(SUBROUTINE_DB_PATH):
+                try:
+                    with open(SUBROUTINE_DB_PATH, 'r') as f:
+                        backup_data = f.read()
+                    with open(backup_path, 'w') as f:
+                        f.write(backup_data)
+                    print(f"[SAVE_SUBROUTINE] Created backup: {backup_path}")
+                except Exception as e:
+                    print(f"[SAVE_SUBROUTINE] Warning: Could not create backup: {e}")
+
+            with open(SUBROUTINE_DB_PATH, 'w') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+
+            print(f"[SAVE_SUBROUTINE] Successfully saved {len(data)} subroutine(s) to subroutine_DB.json")
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'status': 'success',
+                'message': f'Saved {len(data)} subroutine(s) successfully',
+                'count': len(data)
+            }).encode('utf-8'))
+        except ValueError as e:
+            print(f"[SAVE_SUBROUTINE] Error: {e}")
+            self.send_response(400)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'status': 'error',
+                'message': str(e)
+            }).encode('utf-8'))
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"[SAVE_SUBROUTINE] Server error: {error_trace}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'status': 'error',
+                'message': str(e)
+            }).encode('utf-8'))
 
     def handle_generate_examples(self):
         """Handle request to generate grid examples for a task."""
@@ -516,7 +599,8 @@ def run_server(port=8000):
     server_address = ('', port)
     httpd = HTTPServer(server_address, TaskManagerHandler)
     print(f"Server running at http://localhost:{port}/")
-    print(f"Open http://localhost:{port}/manager_ui/task_manager.html in your browser")
+    print(f"Task DB Manager: http://localhost:{port}/manager_ui/task_manager.html")
+    print(f"Subroutine DB Manager: http://localhost:{port}/manager_ui/subroutine_manager.html")
     print("Press Ctrl+C to stop the server")
     try:
         httpd.serve_forever()
