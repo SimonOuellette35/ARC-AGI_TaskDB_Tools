@@ -22,7 +22,7 @@ sys.path.insert(0, str(project_root))
 
 # Path to task_DB.json in the root folder
 TASK_DB_PATH = project_root / 'task_DB.json'
-SUBROUTINE_DB_PATH = project_root / 'subroutine_DB.json'
+SUBROUTINE_DB_PATH = Path('~/AmotizedDSL/subroutine_DB.json').expanduser()
 
 # Import required modules for grid generation
 import AmotizedDSL.DSL as DSL
@@ -611,6 +611,13 @@ def run_server(port=8000):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Task DB Manager HTTP Server')
     parser.add_argument('--port', type=int, default=8000, help='Port number to listen on (default: 8000)')
+    parser.add_argument(
+        '--subroutine-db-path',
+        type=str,
+        default='~/AmotizedDSL/subroutine_DB.json',
+        help='Path to subroutine_DB.json (default: ~/AmotizedDSL/subroutine_DB.json)'
+    )
     args = parser.parse_args()
+    SUBROUTINE_DB_PATH = Path(args.subroutine_db_path).expanduser()
     run_server(port=args.port)
 
