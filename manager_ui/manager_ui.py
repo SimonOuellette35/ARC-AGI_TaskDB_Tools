@@ -26,6 +26,7 @@ SUBROUTINE_DB_PATH = Path('~/AmotizedDSL/subroutine_DB.json').expanduser()
 
 # Import required modules for grid generation
 import AmotizedDSL.DSL as DSL
+import AmotizedDSL.program_interpreter as pi
 from AmotizedDSL.prog_utils import ProgUtils
 from dreaming.grid_example_generator import generate_grid_examples
 from dreaming.dreaming_data_generator import block_of_text_to_program_lines
@@ -68,6 +69,21 @@ def convert_parameters_to_tag_list(parameters, num_parameters):
     """
     if not parameters or num_parameters == 0:
         return []
+
+
+def expand_program_lines_subroutines(program_lines):
+    if not program_lines:
+        return program_lines
+    if not all(isinstance(step, str) for step in program_lines):
+        return program_lines
+
+    amotizeddsl_repo_root = Path(pi.__file__).resolve().parents[1]
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(amotizeddsl_repo_root)
+        return pi.expand_subroutines(program_lines)
+    finally:
+        os.chdir(original_cwd)
     
     # If already a list, validate and return
     if isinstance(parameters, list):
@@ -407,6 +423,7 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
             # Generate instructions from program
             try:
                 program_lines = block_of_text_to_program_lines(program_str)
+                program_lines = expand_program_lines_subroutines(program_lines)
                 instructions = ProgUtils.convert_user_format_to_token_seq(program_lines)
             except Exception as e:
                 import traceback
@@ -514,6 +531,7 @@ class TaskManagerHandler(BaseHTTPRequestHandler):
             N = len(DSL.semantics)
             try:
                 program_lines = block_of_text_to_program_lines(program_str)
+                program_lines = expand_program_lines_subroutines(program_lines)
                 # Convert to instructions
                 instructions = ProgUtils.convert_user_format_to_token_seq(program_lines)
             except Exception as e:

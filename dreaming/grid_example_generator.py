@@ -737,7 +737,6 @@ def execute_program(input_grid_np, instructions, initial_state, catch_exceptions
     object_mask_list = [object_mask] if object_mask is not None else [None]
     # For second get_objects call, pass sub_obj_masks when present
     sub_object_mask_list = [sub_object_mask] if sub_object_mask is not None else None
-
     if catch_exceptions:
         try:
             output_grids_dsl = pi.execute(instructions, initial_state, DSL, object_mask_list, debug_info, sub_object_mask_list=sub_object_mask_list)

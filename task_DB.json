@@ -772,13 +772,8 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "max_x - x",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\nflip_h(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Horizontal Flip",
     "source": "Manual",
@@ -791,13 +786,8 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.max_y, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "max_y - y",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\nflip_v(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Vertical Flip",
     "source": "Manual",
@@ -882,15 +872,8 @@
     "validated": true
   },
   {
-    "program": "[\n  set_y(N+0, N+0.x),\n  sub(N+0.max_y, N+0.y),\n  del(N+0),\n  set_x(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "Grid",
-      "max_y - y",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  rot90(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Rotate 90",
     "source": "Manual",
@@ -903,17 +886,8 @@
     "validated": true
   },
   {
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+1),\n  del(N+1),\n  sub(N+0.max_y, N+0.y),\n  del(N+0),\n  set_y(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "max_x - x",
-      "Grid",
-      "",
-      "max_y - y",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  rot180(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Rotate 180",
     "source": "Manual",
@@ -926,15 +900,8 @@
     "validated": true
   },
   {
-    "program": "[\n  set_x(N+0, N+0.y),\n  sub(N+0.max_x, N+0.x),\n  del(N+0),\n  set_y(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "Grid",
-      "max_x - x",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  rot270(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Rotate 270",
     "source": "Manual",
@@ -1995,21 +1962,8 @@
     "validated": true
   },
   {
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  set_y(N+0, N+0.x),\n  sub(N+0.max_y, N+0.y),\n  del(N+0),\n  set_x(N+1, N+2),\n  del(N+1),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "list of objects",
-      "grid background",
-      "",
-      "list of objects",
-      "max_y - y",
-      "",
-      "list of objects",
-      "",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\nget_objects(N+0),\nget_bg(N+0),\ndel(N+0),\nrot90(N+0),\ndel(N+0),\nrebuild_grid(N+0, N+1),\ndel(N+0),\ndel(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Object Rotate 90",
     "source": "Manual",
@@ -2022,23 +1976,8 @@
     "validated": true
   },
   {
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+2),\n  del(N+2),\n  sub(N+0.max_y, N+0.y),\n  del(N+0),\n  set_y(N+1, N+2),\n  del(N+1),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "list of objects",
-      "grid background",
-      "",
-      "max_x - x",
-      "list of objects",
-      "",
-      "max_y - y",
-      "",
-      "list of objects",
-      "",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  rot180(N+0),\n  del(N+0),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Object Rotate 180",
     "source": "Manual",
@@ -2051,21 +1990,8 @@
     "validated": true
   },
   {
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  set_x(N+0, N+0.y),\n  sub(N+0.max_x, N+0.x),\n  del(N+0),\n  set_y(N+1, N+2),\n  del(N+1),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "list of objects",
-      "grid background",
-      "",
-      "Grid",
-      "max_x - x",
-      "",
-      "list of objects",
-      "",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  rot270(N+0),\n  del(N+0),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Object Rotate 270",
     "source": "Manual",
