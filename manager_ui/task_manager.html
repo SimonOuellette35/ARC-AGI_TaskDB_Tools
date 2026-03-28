@@ -36,6 +36,8 @@
         let currentTaskIndex = -1;
         let isEditing = false;
         let isAddingNew = false;
+        /** @type {Record<string, string[]>} name -> subroutine body instruction lines (same expansion rules as AmotizedDSL program_interpreter.expand_subroutines) */
+        let subroutineStepsByName = {};
 
         // Available tags for input grid constraints
         const AVAILABLE_TAGS = [
@@ -113,13 +115,48 @@
             }
         }
 
+        async function loadSubroutineDb() {
+            try {
+                const response = await fetch('subroutine_DB.json', { cache: 'no-store' });
+                const subs = await response.json();
+                subroutineStepsByName = {};
+                if (Array.isArray(subs)) {
+                    for (const entry of subs) {
+                        if (entry && entry.name && entry.program) {
+                            subroutineStepsByName[entry.name] = parseProgramToInstructions(entry.program);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not load subroutine_DB.json; variable stack will ignore subroutine expansion.', e);
+                subroutineStepsByName = {};
+            }
+        }
+
+        async function refreshSubroutinesForStack() {
+            await loadSubroutineDb();
+            updateVariableStackDisplay();
+        }
+
+        let subroutineRefreshFromFocusTimer = null;
+        function scheduleSubroutineRefreshFromFocus() {
+            if (!isEditing && !isAddingNew) return;
+            clearTimeout(subroutineRefreshFromFocusTimer);
+            subroutineRefreshFromFocusTimer = setTimeout(() => {
+                subroutineRefreshFromFocusTimer = null;
+                refreshSubroutinesForStack();
+            }, 150);
+        }
+
         // Load tasks from JSON file
         async function loadTasks() {
+            await loadSubroutineDb();
             try {
                 const response = await fetch('task_DB.json');
                 tasks = await response.json();
                 updateTotalTaskCount();
                 renderTaskList();
+                updateVariableStackDisplay();
             } catch (error) {
                 console.error('Error loading tasks:', error);
                 document.getElementById('taskList').innerHTML = 
@@ -481,9 +518,9 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             renderTags('editTagsContainer', tags);
             updateTagSelect('editTagSelect', tags);
             
-            // Initialize variable stack display if in edit mode
+            // Initialize variable stack display if in edit mode (reload subroutines — may have changed in subroutine UI)
             if (isEditing || isAddingNew) {
-                setTimeout(() => updateVariableStackDisplay(), 100);
+                refreshSubroutinesForStack();
             }
         }
 
@@ -601,7 +638,7 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             setupParameterTags(emptyTask);
             
             // Initialize variable stack display
-            setTimeout(() => updateVariableStackDisplay(), 100);
+            refreshSubroutinesForStack();
         }
 
         // Start editing
@@ -611,8 +648,7 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             document.getElementById('detailView').style.display = 'none';
             document.getElementById('editForm').classList.add('active');
             document.querySelector('.content-header .action-buttons').innerHTML = '';
-            // Initialize variable stack display
-            setTimeout(() => updateVariableStackDisplay(), 100);
+            refreshSubroutinesForStack();
         }
 
         // Cancel editing
@@ -1639,10 +1675,18 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
 
         // Parse program string into instruction lines
         function parseProgramToInstructions(programStr) {
-            if (!programStr || !programStr.trim()) {
+            if (programStr == null || programStr === '') {
                 return [];
             }
-            
+            if (Array.isArray(programStr)) {
+                return programStr
+                    .filter((x) => x != null && String(x).trim() !== '')
+                    .map((instr) => (typeof instr === 'string' ? instr : JSON.stringify(instr)));
+            }
+            if (typeof programStr !== 'string' || !programStr.trim()) {
+                return [];
+            }
+
             // Try to parse as JSON first
             try {
                 const parsed = JSON.parse(programStr);
@@ -1682,56 +1726,120 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             return match ? match[1] : '';
         }
 
+        function parseInstructionLine(step) {
+            const m = step.trim().match(/^\s*([A-Za-z_]\w*)\((.*)\)\s*$/);
+            if (!m) {
+                return null;
+            }
+            const argsStr = m[2].trim();
+            const args = argsStr.length === 0 ? [] : argsStr.split(',').map(a => a.trim());
+            return { name: m[1], args };
+        }
+
+        function offsetNRefs(arg, offset) {
+            return arg.replace(/N\+(\d+)(\.[A-Za-z_]\w*)?/g, (_, n, suffix) => {
+                const suf = suffix || '';
+                return `N+${parseInt(n, 10) + offset}${suf}`;
+            });
+        }
+
+        function replaceParamRefs(arg, callArgs) {
+            return arg.replace(/param(\d+)(\.[A-Za-z_]\w*)?/g, (_, num, suffix) => {
+                const suf = suffix || '';
+                const paramIdx = parseInt(num, 10) - 1;
+                return `${callArgs[paramIdx]}${suf}`;
+            });
+        }
+
+        function expandSubroutineCall(subName, callArgs, templateSteps, nRefOffset) {
+            const expanded = [];
+            const specialConcatFirstLine = subName === 'concat_h' && callArgs.length >= 2
+                && callArgs[0] === 'N+1' && callArgs[1] === 'N+0';
+            for (let idx = 0; idx < templateSteps.length; idx++) {
+                const templateStep = templateSteps[idx];
+                const parsed = parseInstructionLine(templateStep);
+                if (!parsed) {
+                    continue;
+                }
+                const concreteArgs = [];
+                for (const arg of parsed.args) {
+                    let concreteArg = offsetNRefs(arg, nRefOffset);
+                    if (specialConcatFirstLine && idx === 0) {
+                        concreteArg = concreteArg.replace('param2.width', '__KEEP_PARAM2_WIDTH__');
+                    }
+                    concreteArg = replaceParamRefs(concreteArg, callArgs);
+                    if (specialConcatFirstLine && idx === 0) {
+                        concreteArg = concreteArg.replace('__KEEP_PARAM2_WIDTH__', 'param2.width');
+                    }
+                    concreteArgs.push(concreteArg);
+                }
+                expanded.push(`${parsed.name}(${concreteArgs.join(', ')})`);
+            }
+            return expanded;
+        }
+
         // Calculate variable stack at cursor position
         function calculateVariableStack(programStr, instructionIndex) {
             const instructions = parseProgramToInstructions(programStr);
             const stack = [];
-            
-            // Helper function to re-index stack variables
+
             function reindexStack() {
                 stack.sort((a, b) => a.index - b.index);
                 stack.forEach((v, i) => {
                     v.index = i;
                 });
             }
-            
-            // First variable is always the initial input grid
+
             stack.push({ index: 0, name: 'initial input grid' });
             let nextIndex = 1;
-            
-            // Process instructions up to (but not including) the instruction at instructionIndex
-            for (let i = 0; i < Math.min(instructionIndex, instructions.length); i++) {
-                const instruction = instructions[i];
+
+            function applyOneInstruction(instruction) {
                 const instrName = extractInstructionName(instruction);
-                
-                // Check if this is a 'del' instruction
                 if (instrName === 'del') {
-                    // Extract the variable index being deleted
                     const delMatch = instruction.match(/del\s*\(\s*N\+(\d+)\s*\)/);
                     if (delMatch) {
-                        const delIndex = parseInt(delMatch[1]);
-                        // Remove the variable from stack (if it exists)
+                        const delIndex = parseInt(delMatch[1], 10);
                         const stackIndex = stack.findIndex(v => v.index === delIndex);
                         if (stackIndex !== -1) {
                             stack.splice(stackIndex, 1);
-                            // Re-index immediately after deletion
                             reindexStack();
-                            // Update nextIndex to be the next available index
                             nextIndex = stack.length;
                         }
                     }
                 } else if (instrName) {
-                    // Most instructions create a new variable
-                    // The new variable index is the next available index
                     const newIndex = nextIndex;
                     nextIndex++;
                     stack.push({ index: newIndex, name: instrName });
                 }
             }
-            
-            // Final re-index to ensure consistency
+
+            const limit = Math.min(instructionIndex, instructions.length);
+            for (let i = 0; i < limit; i++) {
+                const step = instructions[i];
+                const parsed = parseInstructionLine(step);
+                const subSteps = parsed && Object.prototype.hasOwnProperty.call(subroutineStepsByName, parsed.name)
+                    ? subroutineStepsByName[parsed.name]
+                    : null;
+
+                if (subSteps && subSteps.length) {
+                    const stackSize = stack.length;
+                    const nRefOffset = Math.max(stackSize - 1, 0);
+                    const expanded = expandSubroutineCall(parsed.name, parsed.args, subSteps, nRefOffset);
+                    for (const subStep of expanded) {
+                        applyOneInstruction(subStep);
+                    }
+                    reindexStack();
+                    const hadNonDel = expanded.some((s) => extractInstructionName(s) !== 'del');
+                    if (hadNonDel && stack.length > 0) {
+                        stack[stack.length - 1].name = parsed.name;
+                    }
+                    continue;
+                }
+
+                applyOneInstruction(step);
+            }
+
             reindexStack();
-            
             return stack;
         }
 
@@ -1828,6 +1936,18 @@ Max: ${task.max_grid_dim !== undefined ? task.max_grid_dim : 'N/A'}</pre>
             const programTextarea = document.getElementById('editProgram');
             if (programTextarea && (e.target === programTextarea || programTextarea.contains(e.target))) {
                 setTimeout(() => updateVariableStackDisplay(), 0);
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') scheduleSubroutineRefreshFromFocus();
+        });
+        window.addEventListener('focus', scheduleSubroutineRefreshFromFocus);
+        window.addEventListener('pageshow', (e) => {
+            if (e.persisted) {
+                loadSubroutineDb().then(() => {
+                    if (isEditing || isAddingNew) updateVariableStackDisplay();
+                });
             }
         });
 

@@ -1,12 +1,7 @@
 [
   {
-    "program": "[\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "Add grid width to its x values",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  concat_h(N+0, N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Tile Right",
     "source": "Manual",
@@ -19,13 +14,8 @@
     "validated": true
   },
   {
-    "program": "[\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "Add grid height to its y values",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  concat_v(N+0, N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Tile Down",
     "source": "Manual",
@@ -772,7 +762,7 @@
     "validated": true
   },
   {
-    "program": "[\nflip_h(N+0)\n]",
+    "program": "[\nflip_h(N+0),\ndel(N+0)\n]",
     "comments": [],
     "curriculum_level": 0,
     "name": "Horizontal Flip",
@@ -786,7 +776,7 @@
     "validated": true
   },
   {
-    "program": "[\nflip_v(N+0)\n]",
+    "program": "[\nflip_v(N+0),\ndel(N+0)\n]",
     "comments": [],
     "curriculum_level": 0,
     "name": "Vertical Flip",
@@ -1912,19 +1902,8 @@
     "validated": true
   },
   {
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.max_x, N+0.x),\n  set_x(N+0, N+2),\n  del(N+0),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "list of objects",
-      "grid background",
-      "",
-      "max_x - x",
-      "list of objects",
-      "",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  flip_h(N+0),\n  del(N+0),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Object Flip H",
     "source": "Manual",
@@ -1937,19 +1916,8 @@
     "validated": true
   },
   {
-    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  sub(N+0.max_y, N+0.y),\n  set_y(N+0, N+2),\n  del(N+0),\n  del(N+1),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "comments": [
-      "list of objects",
-      "grid background",
-      "",
-      "max_y - y",
-      "list of objects",
-      "",
-      "",
-      "Grid",
-      "",
-      ""
-    ],
+    "program": "[\n  get_objects(N+0),\n  get_bg(N+0),\n  del(N+0),\n  flip_v(N+0),\n  del(N+0),\n  rebuild_grid(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "comments": [],
     "curriculum_level": 0,
     "name": "Object Flip V",
     "source": "Manual",
@@ -10316,7 +10284,7 @@
   {
     "name": "Tile 2x2",
     "curriculum_level": 0,
-    "program": "[\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  add(N+0.height, N+0.y),\n  set_pixels(N+2, N+0.x, N+3, N+0.c),\n  del(N+2),\n  set_pixels(N+3, N+1, N+2, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\nconcat_h(N+0, N+0),\ndel(N+0),\ndel(N+0),\nconcat_v(N+0, N+0),\ndel(N+0),\ndel(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10330,7 +10298,7 @@
   {
     "name": "Tile 3x3",
     "curriculum_level": 0,
-    "program": "[\n  add(N+0.width, N+0.x),\n  add(N+0.width, N+1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  set_pixels(N+3, N+2, N+0.y, N+0.c),\n  del(N+3),\n  add(N+0.height, N+0.y),\n  add(N+0.height, N+4),\n  set_pixels(N+3, N+0.x, N+4, N+0.c),\n  set_pixels(N+6, N+0.x, N+5, N+0.c),\n  del(N+3),\n  del(N+5),\n  set_pixels(N+5, N+1, N+3, N+0.c),\n  del(N+5),\n  set_pixels(N+5, N+2, N+3, N+0.c),\n  del(N+5),\n  set_pixels(N+5, N+1, N+4, N+0.c),\n  del(N+5),\n  set_pixels(N+5, N+2, N+4, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n concat_h(N+0, N+0),\n del(N+1),\n concat_h(N+1, N+0),\n del(N+0),\n del(N+0),\n del(N+0),\n concat_v(N+0, N+0),\n del(N+1),\n concat_v(N+1, N+0),\n del(N+0),\n del(N+0),\n del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10344,7 +10312,7 @@
   {
     "name": "Tile Right x4",
     "curriculum_level": 0,
-    "program": "[\n  add(N+0.width, N+0.x),\n  add(N+0.width, N+1),\n  add(N+0.width, N+2),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  set_pixels(N+4, N+2, N+0.y, N+0.c),\n  set_pixels(N+5, N+3, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  concat_h(N+0, N+0),\n  del(N+1),\n  concat_h(N+1, N+0),\n  del(N+1),\n  del(N+1),\n  concat_h(N+1, N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10358,7 +10326,7 @@
   {
     "name": "Tile Right x3",
     "curriculum_level": 0,
-    "program": "[\n  add(N+0.width, N+0.x),\n  add(N+0.width, N+1),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  set_pixels(N+3, N+2, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  concat_h(N+0, N+0),\n  del(N+1),\n  concat_h(N+1, N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10372,7 +10340,7 @@
   {
     "name": "Tile Down x3",
     "curriculum_level": 0,
-    "program": "[\n  add(N+0.height, N+0.y),\n  add(N+0.height, N+1),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  set_pixels(N+3, N+0.x, N+2, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  concat_v(N+0, N+0),\n  del(N+1),\n  concat_v(N+1, N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10386,7 +10354,7 @@
   {
     "name": "Tile Down x4",
     "curriculum_level": 0,
-    "program": "[\n  add(N+0.height, N+0.y),\n  add(N+0.height, N+1),\n  add(N+0.height, N+2),\n  set_pixels(N+0, N+0.x, N+1, N+0.c),\n  set_pixels(N+4, N+0.x, N+2, N+0.c),\n  set_pixels(N+5, N+0.x, N+3, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  concat_v(N+0, N+0),\n  del(N+1),\n  concat_v(N+1, N+0),\n  del(N+1),\n  del(N+1),\n  concat_v(N+1, N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10400,7 +10368,7 @@
   {
     "name": "Tile Right - Identity, Flip H",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  add(N+0.width, N+1),\n  set_pixels(N+0, N+2, N+0.y, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  flip_h(N+0),\n  concat_h(N+0, N+1),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10414,7 +10382,7 @@
   {
     "name": "Tile Down - Identity, Flip V",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_y, N+0.y),\n  add(N+0.height, N+1),\n  set_pixels(N+0, N+0.x, N+2, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\nflip_v(N+0),\n  concat_v(N+0, N+1),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10428,7 +10396,7 @@
   {
     "name": "Tile Right - Identity, Flip V",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_y, N+0.y),\n  add(N+0.width, N+0.x),\n  set_pixels(N+0, N+2, N+1, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  flip_v(N+0),\n  concat_h(N+0, N+1),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10442,7 +10410,7 @@
   {
     "name": "Tile Down - Identity, Flip H",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+1, N+2, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  flip_h(N+0),\n  concat_v(N+0, N+1),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10456,7 +10424,7 @@
   {
     "name": "Tile Down - Flip H, Identity",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  add(N+0.height, N+0.y),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  set_pixels(N+3, N+0.x, N+2, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n flip_h(N+0),\n concat_v(N+1, N+0),\n del(N+0),\n del(N+0),\n del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
@@ -10470,7 +10438,7 @@
   {
     "name": "Tile Down - Flip H, Flip V",
     "curriculum_level": 1,
-    "program": "[\n  sub(N+0.max_x, N+0.x),\n  sub(N+0.max_y, N+0.y),\n  add(N+0.height, N+2),\n  set_pixels(N+0, N+1, N+0.y, N+0.c),\n  set_pixels(N+4, N+0.x, N+3, N+0.c),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n flip_h(N+0),\n flip_v(N+0),\n del(N+0),\n concat_v(N+0, N+1),\n del(N+0),\n del(N+0),\n del(N+0)\n]",
     "comments": [],
     "parameters": [],
     "grid_categories": [
